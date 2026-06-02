@@ -7,10 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 
-// 生成菜单预览链接（HashRouter 需要 #/ 前缀）
+// 生成菜单预览链接（BrowserRouter 直接使用路径）
 function getMenuPreviewUrl(menuId: string): string {
-  const basePath = window.location.pathname.replace(/\/+$/, '');
-  return `${window.location.origin}${basePath}#/r/${menuId}`;
+  return `${window.location.origin}/r/${menuId}`;
 }
 
 // 下载尺寸选项
@@ -33,7 +32,7 @@ export default function QRCodePage() {
 
   const selectedMenu = selectedMenuIndex !== null ? menus[selectedMenuIndex] : null;
   const menuUrl = useMemo(() => selectedMenu ? getMenuPreviewUrl(selectedMenu.id) : '', [selectedMenu]);
-  const hubUrl = useMemo(() => `${window.location.origin}${window.location.pathname.replace(/\/+$/, '')}#/hub`, []);
+  const hubUrl = useMemo(() => `${window.location.origin}/hub`, []);
   const activeUrl = isHubSelected ? hubUrl : menuUrl;
   const activeTitle = isHubSelected ? 'Menu Hub' : (selectedMenu?.title || '');
 
