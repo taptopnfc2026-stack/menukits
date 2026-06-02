@@ -1,0 +1,90 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "ChefyMenu" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: ChefyMenu
+      - navigation [ref=e8]:
+        - link "My menus" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - button "My menus" [ref=e10]:
+            - img
+            - generic [ref=e11]: My menus
+        - link "Analytics" [ref=e12] [cursor=pointer]:
+          - /url: /analytics
+          - button "Analytics" [ref=e13]:
+            - img
+            - generic [ref=e14]: Analytics
+        - link "QR Code" [ref=e15] [cursor=pointer]:
+          - /url: /qr-code
+          - button "QR Code" [ref=e16]:
+            - img
+            - generic [ref=e17]: QR Code
+        - link "AI Studio" [ref=e18] [cursor=pointer]:
+          - /url: /ai-image
+          - button "AI Studio" [ref=e19]:
+            - img
+            - generic [ref=e20]: AI Studio
+        - link "Translations" [ref=e21] [cursor=pointer]:
+          - /url: /translations
+          - button "Translations" [ref=e22]:
+            - img
+            - generic [ref=e23]: Translations
+        - link "Restaurant" [ref=e24] [cursor=pointer]:
+          - /url: /restaurant
+          - button "Restaurant" [ref=e25]:
+            - img
+            - generic [ref=e26]: Restaurant
+      - generic [ref=e27]:
+        - button "Free trial" [ref=e28] [cursor=pointer]
+        - generic [ref=e29]: C
+  - main [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - heading "My menus" [level=1] [ref=e33]
+        - generic [ref=e34]:
+          - button "View menu" [ref=e35] [cursor=pointer]
+          - button "Add menu" [ref=e36] [cursor=pointer]:
+            - img
+            - text: Add menu
+      - generic [ref=e37]:
+        - link "Menu title 4 sections · 11 dishes Show" [ref=e38] [cursor=pointer]:
+          - /url: /editor/1
+          - generic [ref=e39]:
+            - img [ref=e40]
+            - generic [ref=e47]:
+              - paragraph [ref=e48]: Menu title
+              - paragraph [ref=e49]: 4 sections · 11 dishes
+            - generic [ref=e50]:
+              - switch [checked] [ref=e51]
+              - generic [ref=e52]: Show
+              - button [ref=e53]:
+                - img [ref=e54]
+        - link "La Petite café (French dining) 3 sections · 5 dishes Show" [ref=e58] [cursor=pointer]:
+          - /url: /editor/2
+          - generic [ref=e59]:
+            - img [ref=e60]
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: La Petite café (French dining)
+              - paragraph [ref=e69]: 3 sections · 5 dishes
+            - generic [ref=e70]:
+              - switch [checked] [ref=e71]
+              - generic [ref=e72]: Show
+              - button [ref=e73]:
+                - img [ref=e74]
+        - link "Fine French Dining 1 section · 1 dish Hide" [ref=e78] [cursor=pointer]:
+          - /url: /editor/3
+          - generic [ref=e79]:
+            - img [ref=e80]
+            - generic [ref=e87]:
+              - paragraph [ref=e88]: Fine French Dining
+              - paragraph [ref=e89]: 1 section · 1 dish
+            - generic [ref=e90]:
+              - switch [ref=e91]
+              - generic [ref=e92]: Hide
+              - button [ref=e93]:
+                - img [ref=e94]
+      - button "My checklist Completed 67%" [ref=e99] [cursor=pointer]:
+        - text: My checklist
+        - generic [ref=e100]: Completed 67%
+        - img [ref=e101]
