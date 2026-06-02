@@ -57,7 +57,7 @@ function App() {
         </Routes>
         </MenuProvider>
       </CookieConsentProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
