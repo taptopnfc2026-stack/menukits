@@ -28,17 +28,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: app/package-lock.json
 
       - name: Install dependencies
         working-directory: ./app
-        run: npm ci
+        run: |
+          rm -f package-lock.json
+          npm install --legacy-peer-deps 2>&1 || npm install 2>&1
 
       - name: Build
         working-directory: ./app
-        run: npx vite build
+        run: npx vite build 2>&1
+
+      - name: Verify dist
+        run: ls -la ./app/dist/ && echo "--- dist/index.html ---" && head -10 ./app/dist/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
