@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import LandingPage from '@/pages/LandingPage';
 import AppLayout from '@/components/AppLayout';
 import MenusPage from '@/pages/MenusPage';
@@ -20,7 +20,7 @@ import { CookieConsentProvider } from '@/components/CookieConsent';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <CookieConsentProvider>
         <MenuProvider>
         <Routes>
