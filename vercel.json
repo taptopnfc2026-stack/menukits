@@ -1,1 +1,14 @@
-{"$schema": "https://openapi.vercel.sh/vercel.json", "buildCommand": "cd app && npm install && npx vite build", "outputDirectory": "app/dist", "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]}
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd app && npm install && npx vite build",
+  "outputDirectory": "app/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/((?!api).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/menu-recognize.js": {
+      "maxDuration": 60
+    }
+  }
+}

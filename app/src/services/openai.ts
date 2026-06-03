@@ -10,10 +10,12 @@
 import type { Menu, Section, Dish } from '@/types';
 
 // ---- 配置 ----
+const isDev = import.meta.env.DEV;
+// 开发环境：通过 Vite 代理转发到 Moonshot
+// 生产环境：调用 Vercel Serverless Function（API Key 仅存服务端，GDPR 合规）
+const API_URL = isDev ? '/api/openai/v1/chat/completions' : '/api/menu-recognize';
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
-// 通过 Vite 代理转发，避免浏览器 CORS 限制
-const API_URL = '/api/openai/v1/chat/completions';
 
 // ---- 类型 ----
 interface RecognizedDish {
@@ -163,12 +165,17 @@ export async function recognizeMenuFromImages(
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    // 仅开发环境发送 API Key 到 Vite 代理，生产环境由 Serverless 函数管理
+    if (isDev && API_KEY) {
+      headers['Authorization'] = `Bearer ${API_KEY}`;
+    }
+
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
-      },
+      headers,
       body: JSON.stringify({
         model: MODEL,
         messages: [
