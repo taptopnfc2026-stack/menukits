@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   GripVertical,
@@ -10,6 +10,7 @@ import {
   Trash2,
   FileText,
   Sparkles,
+  QrCode,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -119,6 +120,76 @@ export default function MenusPage() {
     setRenamingMenuId(null);
   };
 
+  // Download menu-specific QR code as PNG
+  const handleDownloadQR = (menu: Menu) => {
+    const url = `${window.location.origin}/r/${menu.id}`;
+    const size = 384;
+
+    // Create SVG QR code
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+
+    // Dynamic import to avoid SSR issues with qrcode.react
+    import('qrcode.react').then(({ QRCodeSVG: QRSVG }) => {
+      const { createRoot } = require('react-dom/client');
+      const root = createRoot(container);
+
+      function onRender() {
+        const svgEl = container.querySelector('svg');
+        if (!svgEl) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        const img = new Image();
+        img.onload = () => {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, size, size);
+          const pad = Math.round(size * 0.05);
+          ctx.drawImage(img, pad, pad, size - pad * 2, size - pad * 2);
+
+          const link = document.createElement('a');
+          link.download = `qrcode-${menu.title.toLowerCase().replace(/\s+/g, '-')}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          URL.revokeObjectURL(blobUrl);
+
+          root.unmount();
+          document.body.removeChild(container);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          root.unmount();
+          document.body.removeChild(container);
+        };
+        img.src = blobUrl;
+      }
+
+      root.render(
+        <QRSVG
+          value={url}
+          size={size}
+          level="M"
+          includeMargin={false}
+          bgColor="#ffffff"
+          fgColor="#111827"
+        />
+      );
+
+      // Wait for SVG render
+      requestAnimationFrame(() => {
+        setTimeout(onRender, 100);
+      });
+    });
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       {/* Page header */}
@@ -224,6 +295,12 @@ export default function MenusPage() {
                     className="gap-2"
                   >
                     <ArrowUp className="h-3.5 w-3.5" /> Move up
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDownloadQR(menu)}
+                    className="gap-2"
+                  >
+                    <QrCode className="h-3.5 w-3.5" /> Download QR
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
