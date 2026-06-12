@@ -68,7 +68,7 @@ async function handleList(req, res) {
   const result = await supabaseQuery('restaurants', {
     method: 'GET',
     query: {
-      select: 'id,name,slug,address,phone,website,cover_image_url',
+      select: 'id,name,slug,address,phone,website',
       user_id: `eq.${user.id}`,
       order: 'created_at.asc',
     },
@@ -103,7 +103,6 @@ async function handlePost(req, res) {
       address: body.address || '',
       phone: body.phone || '',
       website: body.website || '',
-      cover_image_url: body.cover_image_url || null,
     },
     useServiceRole: true,
   });
@@ -135,7 +134,6 @@ async function handlePut(req, res) {
   if (body.address !== undefined) updateData.address = body.address;
   if (body.phone !== undefined) updateData.phone = body.phone;
   if (body.website !== undefined) updateData.website = body.website;
-  if (body.cover_image_url !== undefined) updateData.cover_image_url = body.cover_image_url;
 
   // Check slug uniqueness
   if (updateData.slug) {
