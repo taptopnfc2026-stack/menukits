@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
+import { getSession } from '@/lib/supabase';
 import {
   ChevronLeft,
   GripVertical,
@@ -9,6 +10,10 @@ import {
   Star,
   Plus,
   Pencil,
+  Save,
+  Check,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -33,11 +38,15 @@ import type { Menu, Section, Dish } from '@/types';
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
   const { completeStep } = useChecklist();
-  const { getMenuById, updateMenu } = useMenuContext();
+  const { getMenuById, updateMenu, setMenus } = useMenuContext();
   const foundMenu = getMenuById(id!);
   const [menu, setMenu] = useState<Menu>(
     () => foundMenu || { id: '0', title: 'New Menu', sections: [], isVisible: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
   );
+
+  // Save status: idle → saving → saved/error (auto-reset to idle)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState('');
 
   // Sync changes to both local state and global context (persistence)
   const saveMenu = useCallback((updater: Menu | ((prev: Menu) => Menu)) => {
@@ -49,6 +58,79 @@ export default function EditorPage() {
       return next;
     });
   }, [updateMenu]);
+
+  // ─── Manual Save Button Handler ──────────────────
+  const handleManualSave = useCallback(async () => {
+    setSaveStatus('saving');
+    setSaveError('');
+    try {
+      const session = await getSession();
+      if (!session?.access_token) {
+        throw new Error('Please log in to save');
+      }
+
+      const payload = { ...menu, updatedAt: new Date().toISOString() };
+
+      // Determine if this is a new (local-only) menu by checking ID format
+      const isLocalId = /^\d{10,}$/.test(menu.id);
+      let res: Response;
+
+      if (!isLocalId) {
+        // Existing menu — try PUT update
+        res = await fetch(`/api/menus/${menu.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          // PUT failed — fall through to POST create
+          console.warn(`[Save] PUT failed (${res.status}), trying POST...`);
+        }
+      }
+
+      // New menu (local timestamp ID) or PUT failed — create via POST
+      if (isLocalId || !res! || !res!.ok) {
+        res = await fetch('/api/menus', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!res!.ok) {
+        const errText = await res!.text().catch(() => '');
+        throw new Error(errText || `Server error (${res!.status})`);
+      }
+
+      const result = await res!.json();
+
+      // If the server assigned a new ID, update both local state and context
+      if (result?.id && result.id !== menu.id) {
+        console.log('[Save] New menu ID:', menu.id, '→', result.id);
+        setMenu((prev) => ({ ...prev, id: result.id }));
+        setMenus((prev) =>
+          prev.map((m) => (m.id === menu.id ? { ...m, id: result.id } : m))
+        );
+      }
+
+      // Sync into context so auto-save stays in sync
+      updateMenu(menu.id, () => payload);
+
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (e: any) {
+      console.error('[Save] Failed:', e);
+      setSaveStatus('error');
+      setSaveError(e?.message || 'Save failed — check console');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  }, [menu, setMenus, updateMenu]);
 
   const [addDishOpen, setAddDishOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -270,14 +352,43 @@ export default function EditorPage() {
             </div>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-sm"
-          onClick={() => setPreviewOpen(true)}
-        >
-          View menu
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Save button with status feedback */}
+          {saveStatus === 'saved' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
+              <Check className="h-4 w-4" />
+              Saved
+            </span>
+          ) : saveStatus === 'error' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700" title={saveError}>
+              <AlertCircle className="h-4 w-4" />
+              Save failed
+            </span>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 bg-[#5544e4] hover:bg-[#4a3bd4]"
+              onClick={handleManualSave}
+              disabled={saveStatus === 'saving'}
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm"
+            onClick={() => setPreviewOpen(true)}
+          >
+            View menu
+          </Button>
+        </div>
       </div>
 
       {/* Sections & Dishes */}
