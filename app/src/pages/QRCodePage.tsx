@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 // Generate restaurant slug URL (custom URL for each business)
 function getRestaurantSlugUrl(): string {
@@ -63,22 +64,43 @@ export default function QRCodePage() {
     }
   }, [menus, isSyncing]);
 
-  // Load restaurant slug on mount
+  // Load restaurant slug on mount; auto-create if missing
   useEffect(() => {
-    async function loadSlug() {
+    async function loadOrCreateSlug() {
       try {
-        const res = await fetch('/api/restaurants');
+        const session = await supabase.auth.getSession();
+        if (!session?.data?.session?.access_token) return;
+
+        const token = session.data.session.access_token;
+        const res = await fetch('/api/restaurants', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (res.ok) {
           const rows = await res.json();
           if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
             setRestaurantSlug(rows[0].slug);
+            return;
           }
+        }
+
+        // No restaurant yet — create one automatically
+        const createRes = await fetch('/api/restaurants', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name: 'My Restaurant' }),
+        });
+        if (createRes.ok) {
+          const created = await createRes.json();
+          if (created?.slug) setRestaurantSlug(created.slug);
         }
       } catch {
         /* ignore */
       }
     }
-    loadSlug();
+    loadOrCreateSlug();
   }, []);
 
   const selectedMenu = selectedMenuIndex !== null ? menus[selectedMenuIndex] : null;
@@ -186,7 +208,7 @@ export default function QRCodePage() {
             <h2 className="text-base font-semibold text-gray-900">Select a menu</h2>
             {menus.length > 0 && (
               <button
-                onClick={() => window.open('/hub', '_blank')}
+                onClick={() => window.open(restaurantSlug ? `/hub/${restaurantSlug}` : '/hub', '_blank')}
                 className="flex items-center gap-1 text-xs font-medium text-[#5544e4] hover:text-[#4433cc] transition-colors"
               >
                 <ExternalLink className="h-3 w-3" />
