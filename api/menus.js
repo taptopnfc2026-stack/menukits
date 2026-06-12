@@ -82,7 +82,7 @@ async function handleList(req, res) {
 
   const result = await supabaseQuery('menus', {
     method: 'GET',
-    query: { select: '*', order: 'updated_at.desc' },
+    query: { select: 'id,name,slug,language,is_public,settings,created_at,updated_at', user_id: `eq.${user.id}`, order: 'updated_at.desc' },
     useServiceRole: true,
   });
 
@@ -116,8 +116,7 @@ async function handleCreate(req, res) {
       slug,
       is_public: body.isVisible || false,
       language: body.language || 'en',
-      data: body,
-      settings: {},
+      settings: typeof body === 'object' ? body : {},
     },
     useServiceRole: true,
   });
@@ -138,7 +137,7 @@ async function handleGet(req, res, id) {
 
   const result = await supabaseQuery('menus', {
     method: 'GET',
-    query: { select: '*', id: `eq.${id}`, limit: '1' },
+    query: { select: 'id,name,slug,language,is_public,settings,created_at,updated_at', id: `eq.${id}`, user_id: `eq.${user.id}`, limit: '1' },
     useServiceRole: true,
   });
 
@@ -166,7 +165,7 @@ async function handleUpdate(req, res, id) {
     body: {
       name: body.title,
       is_public: body.isVisible !== false,
-      data: body,
+      settings: typeof body === 'object' ? body : {},
     },
     useServiceRole: true,
   });
@@ -191,7 +190,7 @@ async function handleDelete(req, res, id) {
 
   const result = await supabaseQuery('menus', {
     method: 'DELETE',
-    query: { id: `eq.${id}` },
+    query: { id: `eq.${id}`, user_id: `eq.${user.id}` },
     useServiceRole: true,
   });
 

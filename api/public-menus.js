@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     if (slug) {
       const result = await supabaseQuery('menus', {
         method: 'GET',
-        query: { select: '*', slug: `eq.${slug}`, is_public: 'eq.true', limit: '1' },
+        query: { select: 'id,name,slug,language,settings,created_at,updated_at', slug: `eq.${slug}`, is_public: 'eq.true', limit: '1' },
       });
       if (!result.ok) {
         console.error('[PublicMenus] By-slug failed:', result.status, result.error);
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
       const result = await supabaseQuery('menus', {
         method: 'GET',
-        query: { select: '*', or: `(${orFilter})`, is_public: 'eq.true' },
+        query: { select: 'id,name,slug,language,settings,created_at,updated_at', or: `(${orFilter})`, is_public: 'eq.true' },
       });
       if (!result.ok) {
         console.error('[PublicMenus] By-ids failed:', result.status, result.error);
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     // List all public menus
     const result = await supabaseQuery('menus', {
       method: 'GET',
-      query: { select: '*', is_public: 'eq.true', order: 'updated_at.desc' },
+      query: { select: 'id,name,slug,language,settings,created_at,updated_at', is_public: 'eq.true', order: 'updated_at.desc' },
     });
     if (!result.ok) {
       console.error('[PublicMenus] List-all failed:', result.status, result.error);

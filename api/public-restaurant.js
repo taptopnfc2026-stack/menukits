@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     const menuResult = await supabaseQuery('menus', {
       method: 'GET',
       query: {
-        select: '*',
+        select: 'id,name,slug,language,settings,created_at,updated_at',
         user_id: `eq.${restaurant.user_id}`,
         is_public: 'eq.true',
         order: 'updated_at.desc',

@@ -150,7 +150,7 @@ async function handlePut(req, res) {
   // Find existing restaurant for this user
   const existingResult = await supabaseQuery('restaurants', {
     method: 'GET',
-    query: { select: '*', user_id: `eq.${user.id}`, limit: '1' },
+    query: { select: 'id,name,slug,address,phone,website,user_id', user_id: `eq.${user.id}`, limit: '1' },
     useServiceRole: true,
   });
 
