@@ -6,6 +6,9 @@
  * GET    /api/menus/:id      — Get one menu
  * PUT    /api/menus/:id      — Update a menu
  * DELETE /api/menus/:id      — Delete a menu
+ *
+ * IMPORTANT: Vercel Node.js runtime uses plain object headers (NOT Headers instance).
+ * Always use req.headers['authorization'] instead of req.headers.get().
  */
 
 import { supabaseQuery, verifySupabaseToken } from './_supabase.js';
@@ -22,9 +25,13 @@ function err(status, message) {
   return json(status, { error: message });
 }
 
+/** Vercel Node.js runtime: req.headers is a plain object, NOT a Web Headers instance */
+function getAuthHeader(req) {
+  return (req.headers?.['authorization'] || req.headers?.['Authorization'] || '').replace(/^Bearer\s+/, '');
+}
+
 async function getUser(req) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = getAuthHeader(req);
   if (!token) return null;
   return await verifySupabaseToken(token);
 }
@@ -65,7 +72,7 @@ async function handleList(req) {
   const result = await supabaseQuery('menus', {
     method: 'GET',
     query: { select: '*', order: 'updated_at.desc' },
-    token: req.headers.get('Authorization')?.replace('Bearer ', '') || undefined,
+    token: getAuthHeader(req) || undefined,
   });
 
   if (!result.ok) {
@@ -91,7 +98,6 @@ async function handleCreate(req) {
     .replace(/^-|-$/g, '')
     + '-' + Date.now().toString(36);
 
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const result = await supabaseQuery('menus', {
     method: 'POST',
     body: {
@@ -103,7 +109,7 @@ async function handleCreate(req) {
       data: body,
       settings: {},
     },
-    token,
+    token: getAuthHeader(req),
   });
 
   if (!result.ok) {
@@ -123,7 +129,7 @@ async function handleGet(req, id) {
   const result = await supabaseQuery('menus', {
     method: 'GET',
     query: { select: '*', id: `eq.${id}`, limit: '1' },
-    token: req.headers.get('Authorization')?.replace('Bearer ', '') || undefined,
+    token: getAuthHeader(req) || undefined,
   });
 
   if (!result.ok) {
@@ -145,7 +151,6 @@ async function handleUpdate(req, id) {
   const body = await req.json().catch(() => null);
   if (!body) return err(400, 'Invalid body');
 
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const result = await supabaseQuery('menus', {
     method: 'PUT',
     query: { id: `eq.${id}` },
@@ -154,7 +159,7 @@ async function handleUpdate(req, id) {
       is_public: body.isVisible !== false,
       data: body,
     },
-    token,
+    token: getAuthHeader(req),
   });
 
   if (!result.ok) {
@@ -176,11 +181,10 @@ async function handleDelete(req, id) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
 
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
   const result = await supabaseQuery('menus', {
     method: 'DELETE',
     query: { id: `eq.${id}` },
-    token,
+    token: getAuthHeader(req),
   });
 
   if (!result.ok) {

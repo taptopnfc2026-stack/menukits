@@ -19,16 +19,20 @@ function err(status, message) {
   return json(status, { error: message });
 }
 
+/** Get Authorization header value (Vercel Node.js runtime uses plain object, not Headers) */
+function getAuthHeader(req) {
+  return (req.headers?.['authorization'] || req.headers?.['Authorization'] || '').replace(/^Bearer\s+/, '');
+}
+
 async function getUser(req) {
-  const authHeader = req.headers.get('Authorization') || '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = getAuthHeader(req);
   if (!token) return null;
   return await verifySupabaseToken(token);
 }
 
 /** Extract Bearer token from request headers */
 function getToken(req) {
-  return req.headers.get('Authorization')?.replace('Bearer ', '') || '';
+  return getAuthHeader(req);
 }
 
 export default async function handler(req) {
