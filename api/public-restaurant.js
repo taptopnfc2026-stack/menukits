@@ -1,55 +1,45 @@
 /**
  * Public Restaurant API — No auth required.
- * Used by customer-facing menu hub (QR scan → mobile view).
  *
- * GET /api/public-restaurant?slug=la-petite-cafe  — Get restaurant + menus by custom slug
+ * GET /api/public-restaurant?slug=xxx  — Get restaurant + menus by custom slug
  */
 
 import { supabaseQuery } from './_supabase.js';
 
 export const config = { runtime: 'nodejs' };
 
-function json(status, data) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
+function json(res, status, data) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  return res.status(status).end(JSON.stringify(data));
 }
 
-export default async function handler(req) {
-  try {
-    if (req.method !== 'GET') return json(405, { error: 'Method not allowed' });
+export default async function handler(req, res) {
+  if (req.method !== 'GET') return json(res, 405, { error: 'Method not allowed' });
 
+  try {
     const url = new URL(req.url || '/', 'http://localhost');
     const slug = url.searchParams.get('slug');
 
-    if (!slug) return json(400, { error: 'Missing slug parameter' });
+    if (!slug) return json(res, 400, { error: 'Missing slug parameter' });
 
-    // Sanitize: only allow alphanumeric + hyphens
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{1,}$/i.test(slug)) {
-      return json(400, { error: 'Invalid slug format' });
+      return json(res, 400, { error: 'Invalid slug format' });
     }
 
     // Fetch restaurant by slug
     const restResult = await supabaseQuery('restaurants', {
       method: 'GET',
-      query: {
-        select: '*',
-        slug: `eq.${encodeURIComponent(slug)}`,
-        limit: '1',
-      },
+      query: { select: '*', slug: `eq.${encodeURIComponent(slug)}`, limit: '1' },
     });
 
     if (!restResult.ok) {
       console.error('[PublicRestaurant] Fetch restaurant failed:', restResult.status, restResult.error);
-      return json(502, { error: 'Database error' });
+      return json(res, 502, { error: 'Database error' });
     }
 
     const restaurant = Array.isArray(restResult.data) ? restResult.data[0] : null;
-    if (!restaurant) return json(404, { error: 'Restaurant not found' });
+    if (!restaurant) return json(res, 404, { error: 'Restaurant not found' });
 
     // Fetch public menus for this restaurant
     const menuResult = await supabaseQuery('menus', {
@@ -64,11 +54,13 @@ export default async function handler(req) {
 
     if (!menuResult.ok) {
       console.error('[PublicRestaurant] Fetch menus failed:', menuResult.status, menuResult.error);
-      // Still return restaurant even if menus fail
-      return json(200, { restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, address: restaurant.address || '', phone: restaurant.phone || '', cover_image_url: restaurant.cover_image_url || null }, menus: [] });
+      return json(res, 200, {
+        restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, address: restaurant.address || '', phone: restaurant.phone || '', cover_image_url: restaurant.cover_image_url || null },
+        menus: [],
+      });
     }
 
-    return json(200, {
+    return json(res, 200, {
       restaurant: {
         id: restaurant.id,
         name: restaurant.name,
@@ -81,6 +73,6 @@ export default async function handler(req) {
     });
   } catch (e) {
     console.error('[PublicRestaurant] Unhandled error:', e?.message || e);
-    return json(500, { error: 'Internal server error' });
+    return json(res, 500, { error: 'Internal server error' });
   }
 }

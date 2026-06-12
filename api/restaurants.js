@@ -2,28 +2,29 @@
  * Restaurants API — Authenticated CRUD.
  *
  * GET    /api/restaurants          — List user's restaurant(s)
- * PUT    /api/restaurants          — Update restaurant (name, slug)
+ * PUT    /api/restaurants          — Update restaurant
  * POST   /api/restaurants          — Create new restaurant
+ *
+ * Uses traditional Node.js (req, res) format for Vercel compatibility.
  */
 
 import { supabaseQuery, verifySupabaseToken } from './_supabase.js';
 
 export const config = { runtime: 'nodejs' };
 
-function json(status, data) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+function json(res, status, data) {
+  res.setHeader('Content-Type', 'application/json');
+  return res.status(status).end(JSON.stringify(data));
 }
 
-function err(status, message) {
-  return json(status, { error: message });
+function err(res, status, message) {
+  return json(res, status, { error: message });
 }
 
-/** Get Authorization header value (Vercel Node.js runtime uses plain object, not Headers) */
+/** Get Bearer token from Authorization header */
 function getAuthHeader(req) {
-  return (req.headers?.['authorization'] || req.headers?.['Authorization'] || '').replace(/^Bearer\s+/, '');
+  const h = req.headers?.authorization || req.headers?.['Authorization'] || '';
+  return h.replace(/^Bearer\s+/, '');
 }
 
 async function getUser(req) {
@@ -32,33 +33,37 @@ async function getUser(req) {
   return await verifySupabaseToken(token);
 }
 
-/** Extract Bearer token from request headers */
-function getToken(req) {
-  return getAuthHeader(req);
+function readBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  if (typeof req.body === 'string') {
+    try { return JSON.parse(req.body); } catch { return null; }
+  }
+  return null;
 }
 
-export default async function handler(req) {
+// ─── Route dispatcher ─────────────────────────────
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   try {
-    const method = req.method;
-
-    // GET — list user's restaurants
-    if (method === 'GET') return handleList(req);
-    // PUT — update or create
-    if (method === 'PUT') return handlePut(req);
-    // POST — create new restaurant
-    if (method === 'POST') return handlePost(req);
-
-    return err(405, 'Method not allowed');
+    if (req.method === 'GET') return handleList(req, res);
+    if (req.method === 'PUT') return handlePut(req, res);
+    if (req.method === 'POST') return handlePost(req, res);
+    return err(res, 405, 'Method not allowed');
   } catch (e) {
     console.error('[Restaurants] Unhandled error:', e?.message || e);
-    return err(500, 'Internal server error');
+    return err(res, 500, 'Internal server error');
   }
 }
 
 // ─── GET: List ─────────────────────────────────────
-async function handleList(req) {
+async function handleList(req, res) {
   const user = await getUser(req);
-  if (!user) return err(401, 'Unauthorized');
+  if (!user) return err(res, 401, 'Unauthorized');
 
   const result = await supabaseQuery('restaurants', {
     method: 'GET',
@@ -66,24 +71,24 @@ async function handleList(req) {
       select: 'id,name,slug,address,phone,website,cover_image_url',
       order: 'created_at.asc',
     },
-    token: getToken(req),
+    token: getAuthHeader(req),
   });
 
   if (!result.ok) {
     console.error('[Restaurants] List failed:', result.status, result.error);
-    return err(502, `Database error: ${result.error}`);
+    return err(res, 502, `Database error: ${result.error}`);
   }
 
-  return json(200, result.data || []);
+  return json(res, 200, result.data || []);
 }
 
 // ─── POST: Create ──────────────────────────────────
-async function handlePost(req) {
+async function handlePost(req, res) {
   const user = await getUser(req);
-  if (!user) return err(401, 'Unauthorized');
+  if (!user) return err(res, 401, 'Unauthorized');
 
-  const body = await req.json().catch(() => null);
-  if (!body) return err(400, 'Invalid body');
+  const body = await readBody(req);
+  if (!body) return err(res, 400, 'Invalid body');
 
   const name = body.name || 'My Restaurant';
   const slug = (body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')) + '-' + Date.now().toString(36);
@@ -99,31 +104,31 @@ async function handlePost(req) {
       website: body.website || '',
       cover_image_url: body.cover_image_url || null,
     },
-    token: getToken(req),
+    token: getAuthHeader(req),
   });
 
   if (!result.ok) {
     console.error('[Restaurants] Create failed:', result.status, result.error);
-    return err(502, `Failed to create restaurant: ${result.error}`);
+    return err(res, 502, `Failed to create restaurant: ${result.error}`);
   }
 
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
-  return json(201, row);
+  return json(res, 201, row);
 }
 
 // ─── PUT: Update or create-if-not-exists ───────────
-async function handlePut(req) {
+async function handlePut(req, res) {
   const user = await getUser(req);
-  if (!user) return err(401, 'Unauthorized');
+  if (!user) return err(res, 401, 'Unauthorized');
 
-  const body = await req.json().catch(() => null);
-  if (!body) return err(400, 'Invalid body');
+  const body = await readBody(req);
+  if (!body) return err(res, 400, 'Invalid body');
 
   const updateData = {};
   if (body.name !== undefined) updateData.name = body.name;
   if (body.slug !== undefined) {
     let s = body.slug.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-|-$/g, '');
-    if (!s) return err(400, 'Invalid slug format');
+    if (!s) return err(res, 400, 'Invalid slug format');
     updateData.slug = s;
   }
   if (body.address !== undefined) updateData.address = body.address;
@@ -131,14 +136,14 @@ async function handlePut(req) {
   if (body.website !== undefined) updateData.website = body.website;
   if (body.cover_image_url !== undefined) updateData.cover_image_url = body.cover_image_url;
 
-  // Check slug uniqueness (use anon key for public check)
+  // Check slug uniqueness
   if (updateData.slug) {
     const existing = await supabaseQuery('restaurants', {
       method: 'GET',
       query: { select: 'id', slug: `eq.${updateData.slug}`, limit: '1' },
     });
     if (existing.ok && Array.isArray(existing.data) && existing.data.length > 0 && existing.data[0].id !== body.id) {
-      return err(409, 'This URL is already taken. Please choose another.');
+      return err(res, 409, 'This URL is already taken. Please choose another.');
     }
   }
 
@@ -146,7 +151,7 @@ async function handlePut(req) {
   const existingResult = await supabaseQuery('restaurants', {
     method: 'GET',
     query: { select: '*', user_id: `eq.${user.id}`, limit: '1' },
-    token: getToken(req),
+    token: getAuthHeader(req),
   });
 
   if (existingResult.ok && Array.isArray(existingResult.data) && existingResult.data.length > 0) {
@@ -155,17 +160,17 @@ async function handlePut(req) {
       method: 'PUT',
       query: { id: `eq.${existingResult.data[0].id}` },
       body: updateData,
-      token: getToken(req),
+      token: getAuthHeader(req),
     });
 
     if (!result.ok) {
       console.error('[Restaurants] Update failed:', result.status, result.error);
-      return err(502, `Update failed: ${result.error}`);
+      return err(res, 502, `Update failed: ${result.error}`);
     }
 
     const row = Array.isArray(result.data) ? result.data[0] : null;
-    if (!row) return err(500, 'Update failed');
-    return json(200, row);
+    if (!row) return err(res, 500, 'Update failed');
+    return json(res, 200, row);
   } else {
     // Create new
     const result = await supabaseQuery('restaurants', {
@@ -176,15 +181,15 @@ async function handlePut(req) {
         slug: updateData.slug || `restaurant-${Date.now().toString(36)}`,
         ...updateData,
       },
-      token: getToken(req),
+      token: getAuthHeader(req),
     });
 
     if (!result.ok) {
       console.error('[Restaurants] Create-in-put failed:', result.status, result.error);
-      return err(502, `Create failed: ${result.error}`);
+      return err(res, 502, `Create failed: ${result.error}`);
     }
 
     const row = Array.isArray(result.data) ? result.data[0] : result.data;
-    return json(201, row);
+    return json(res, 201, row);
   }
 }
