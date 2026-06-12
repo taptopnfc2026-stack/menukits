@@ -83,7 +83,7 @@ async function handleList(req, res) {
   const result = await supabaseQuery('menus', {
     method: 'GET',
     query: { select: '*', order: 'updated_at.desc' },
-    token: getAuthHeader(req) || undefined,
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -119,7 +119,7 @@ async function handleCreate(req, res) {
       data: body,
       settings: {},
     },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -139,7 +139,7 @@ async function handleGet(req, res, id) {
   const result = await supabaseQuery('menus', {
     method: 'GET',
     query: { select: '*', id: `eq.${id}`, limit: '1' },
-    token: getAuthHeader(req) || undefined,
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -168,7 +168,7 @@ async function handleUpdate(req, res, id) {
       is_public: body.isVisible !== false,
       data: body,
     },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -192,7 +192,7 @@ async function handleDelete(req, res, id) {
   const result = await supabaseQuery('menus', {
     method: 'DELETE',
     query: { id: `eq.${id}` },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (!result.ok) {

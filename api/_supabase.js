@@ -49,10 +49,10 @@ export async function supabaseAuthAdmin(path, body) {
  * Never throws — callers must check .ok.
  *
  * @param {string} table - table name
- * @param {object} opts - { method, body, query, token }
+ * @param {object} opts - { method, body, query, token, useServiceRole }
  */
 export async function supabaseQuery(table, opts = {}) {
-  const { method = 'GET', body, query, token } = opts;
+  const { method = 'GET', body, query, token, useServiceRole = false } = opts;
 
   // Validate URL
   let url;
@@ -69,18 +69,24 @@ export async function supabaseQuery(table, opts = {}) {
     });
   }
 
-  // Build headers
+  // Build headers — when useServiceRole is true (server-side after auth), 
+  // use service_role key to bypass RLS
+  const isServiceMode = useServiceRole && !!SUPABASE_SERVICE_KEY;
+  const effectiveKey = isServiceMode ? SUPABASE_SERVICE_KEY : SUPABASE_ANON_KEY;
+
   const headers = {
-    'apikey': SUPABASE_ANON_KEY,
+    'apikey': effectiveKey,
     'Content-Type': 'application/json',
   };
   if (method !== 'GET') {
     headers['Prefer'] = 'return=representation';
   }
-  if (token) {
+  if (isServiceMode) {
+    headers['Authorization'] = `Bearer ${SUPABASE_SERVICE_KEY}`;
+  } else if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  } else if (SUPABASE_ANON_KEY) {
-    headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
+  } else if (effectiveKey) {
+    headers['Authorization'] = `Bearer ${effectiveKey}`;
   }
 
   // Build fetch options

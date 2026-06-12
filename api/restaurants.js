@@ -71,7 +71,7 @@ async function handleList(req, res) {
       select: 'id,name,slug,address,phone,website,cover_image_url',
       order: 'created_at.asc',
     },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -104,7 +104,7 @@ async function handlePost(req, res) {
       website: body.website || '',
       cover_image_url: body.cover_image_url || null,
     },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (!result.ok) {
@@ -141,6 +141,7 @@ async function handlePut(req, res) {
     const existing = await supabaseQuery('restaurants', {
       method: 'GET',
       query: { select: 'id', slug: `eq.${updateData.slug}`, limit: '1' },
+      useServiceRole: true,
     });
     if (existing.ok && Array.isArray(existing.data) && existing.data.length > 0 && existing.data[0].id !== body.id) {
       return err(res, 409, 'This URL is already taken. Please choose another.');
@@ -151,7 +152,7 @@ async function handlePut(req, res) {
   const existingResult = await supabaseQuery('restaurants', {
     method: 'GET',
     query: { select: '*', user_id: `eq.${user.id}`, limit: '1' },
-    token: getAuthHeader(req),
+    useServiceRole: true,
   });
 
   if (existingResult.ok && Array.isArray(existingResult.data) && existingResult.data.length > 0) {
@@ -160,7 +161,7 @@ async function handlePut(req, res) {
       method: 'PUT',
       query: { id: `eq.${existingResult.data[0].id}` },
       body: updateData,
-      token: getAuthHeader(req),
+      useServiceRole: true,
     });
 
     if (!result.ok) {
@@ -181,7 +182,7 @@ async function handlePut(req, res) {
         slug: updateData.slug || `restaurant-${Date.now().toString(36)}`,
         ...updateData,
       },
-      token: getAuthHeader(req),
+      useServiceRole: true,
     });
 
     if (!result.ok) {
