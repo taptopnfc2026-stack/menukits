@@ -85,23 +85,33 @@ export default function EditorPage() {
           },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) {
-          // PUT failed — fall through to POST create
-          console.warn(`[Save] PUT failed (${res.status}), trying POST...`);
+        if (res.ok) {
+          // PUT succeeded — done!
+          updateMenu(menu.id, () => payload);
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+          return;
         }
+
+        // Only fallback to POST when menu doesn't exist (404)
+        // For other errors (405, 403, etc.) report failure to user
+        if (res.status !== 404) {
+          const errText = await res.text().catch(() => '');
+          console.error(`[Save] PUT failed (${res.status}): ${errText}`);
+          throw new Error(`Update failed (${res.status}): ${errText || 'Server error'}`);
+        }
+        console.log(`[Save] Menu not found in DB, creating new...`);
       }
 
-      // New menu (local timestamp ID) or PUT failed — create via POST
-      if (isLocalId || !res! || !res!.ok) {
-        res = await fetch('/api/menus', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-      }
+      // New menu (local timestamp ID) or 404 case — create via POST
+      res = await fetch('/api/menus', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (!res!.ok) {
         const errText = await res!.text().catch(() => '');

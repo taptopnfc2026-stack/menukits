@@ -20,11 +20,11 @@ interface ChecklistContextValue {
 }
 
 const DEFAULT_STEPS: ChecklistStep[] = [
-  { id: 'business-name', label: 'Set your business name', completed: false },
-  { id: 'create-menu', label: 'Create your first menu', completed: false },
+  { id: 'business-name', label: 'Set your business name', completed: false, actionPath: '/app/restaurant' },
+  { id: 'create-menu', label: 'Create your first menu', completed: false, actionPath: '/app' },
   { id: 'restaurant-details', label: 'Add your restaurant details', completed: false, actionPath: '/app/restaurant' },
-  { id: 'cover-image', label: 'Upload a cover image', completed: false },
-  { id: 'menu-language', label: 'Set your menu language', completed: false },
+  { id: 'cover-image', label: 'Upload a cover image', completed: false, actionPath: '/app/restaurant' },
+  { id: 'menu-language', label: 'Set your menu language', completed: false, actionPath: '/app/translations' },
   { id: 'qr-code', label: 'Download your QR code', completed: false, actionPath: '/app/qr-code' },
 ];
 

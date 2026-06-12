@@ -191,11 +191,18 @@ async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> |
         // If PUT succeeded, continue to next menu
         if (res.ok) continue;
 
-        // PUT failed (404 or other) — fall through to create via POST
-        console.warn(`[Sync] PUT failed for ${menu.id} (${res.status}), trying POST...`);
+        // Only fallback to POST on 404 (menu truly doesn't exist)
+        // For other errors (405, 403, 500, etc.) skip to avoid creating duplicates
+        if (res.status !== 404) {
+          const errText = await res.text().catch(() => '');
+          console.warn(`[Sync] Skipping menu ${menu.id} — PUT returned ${res.status}: ${errText}`);
+          continue;
+        }
+
+        console.log(`[Sync] Menu ${menu.id} not found in DB (404), creating...`);
       }
 
-      // CREATE new menu via POST
+      // CREATE new menu via POST (local-only IDs or 404 case only)
       res = await fetch('/api/menus', {
         method: 'POST',
         headers: {

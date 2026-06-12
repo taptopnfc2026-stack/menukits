@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSession } from '@/lib/supabase';
 
 // Generate restaurant slug URL (custom URL for each business)
 function getRestaurantSlugUrl(): string {
@@ -39,19 +40,46 @@ export default function QRCodePage() {
   const { menus, saveToCloud } = useMenuContext();
   const [isSyncing, setIsSyncing] = useState(true);
 
-  // Force cloud sync on mount — ensures all local menus are saved to DB
-  // and timestamp IDs are replaced with server UUIDs
+  // On mount: only sync local timestamp-ID menus to cloud (not UUIDs which already exist)
+  // This prevents duplicate creation when PUT fails
   useEffect(() => {
     let cancelled = false;
-    async function sync() {
+    async function syncLocalOnly() {
       try {
-        await saveToCloud();
+        const session = await getSession();
+        if (!session?.access_token) { setIsSyncing(false); return; }
+
+        // Only sync menus with local timestamp IDs (never been saved)
+        const localMenus = menus.filter((m) => /^\d{10,}$/.test(m.id));
+        if (localMenus.length === 0) {
+          setIsSyncing(false);
+          return;
+        }
+
+        for (const menu of localMenus) {
+          const res = await fetch('/api/menus', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify(menu),
+          });
+          if (res.ok) {
+            const created = await res.json();
+            if (created?.id && created.id !== menu.id) {
+              setMenus((prev) =>
+                prev.map((m) => (m.id === menu.id ? { ...m, id: created.id } : m))
+              );
+            }
+          }
+        }
       } catch {
         /* non-fatal */
       }
       if (!cancelled) setIsSyncing(false);
     }
-    sync();
+    syncLocalOnly();
     return () => { cancelled = true; };
   }, []);
 
@@ -63,7 +91,7 @@ export default function QRCodePage() {
     }
   }, [menus, isSyncing]);
 
-  // Load restaurant slug on mount; auto-create if missing
+  // Load restaurant slug on mount; auto-create or fix missing slugs
   useEffect(() => {
     async function loadOrCreateSlug() {
       if (!authToken) {
@@ -77,8 +105,36 @@ export default function QRCodePage() {
         if (res.ok) {
           const rows = await res.json();
           console.log('[QR] Restaurants response:', rows);
-          if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
-            setRestaurantSlug(rows[0].slug);
+          if (Array.isArray(rows) && rows.length > 0) {
+            const rest = rows[0];
+            // If restaurant exists but has no slug — update it with one
+            if (!rest.slug || rest.slug.trim() === '') {
+              console.log('[QR] Restaurant has no slug, generating one...');
+              const generatedSlug = (rest.name || 'my-restaurant')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '')
+                + '-' + Date.now().toString(36);
+
+              const updateRes = await fetch('/api/restaurants', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ id: rest.id, slug: generatedSlug }),
+              });
+              if (updateRes.ok) {
+                const updated = await updateRes.json();
+                console.log('[QR] Slug updated:', updated?.slug);
+                if (updated?.slug) setRestaurantSlug(updated.slug);
+              } else {
+                console.warn('[QR] Slug update failed, using fallback');
+                setRestaurantSlug(generatedSlug);
+              }
+              return;
+            }
+            setRestaurantSlug(rest.slug);
             return;
           }
         } else {
@@ -121,7 +177,9 @@ export default function QRCodePage() {
   );
   const activeUrl = isHubSelected ? hubUrl : menuUrl;
   const activeTitle = isHubSelected
-    ? (restaurantSlug ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Menu Hub')
+    ? (restaurantSlug
+        ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        : 'Menu Hub')
     : (selectedMenu?.title || '');
 
   // 点击外部关闭尺寸选择器
@@ -227,7 +285,7 @@ export default function QRCodePage() {
             <p className="text-sm text-gray-400">No menus available. Create or upload a menu first.</p>
           ) : (
             <div className="space-y-2">
-              {/* Menu Hub button */}
+              {/* Menu Hub / Restaurant button */}
               <button
                 onClick={handleSelectHub}
                 className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
@@ -238,10 +296,14 @@ export default function QRCodePage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-medium truncate ${isHubSelected ? 'text-[#5544e4]' : 'text-gray-700'}`}>
-                    Menu Hub
+                    {restaurantSlug
+                      ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                      : 'Menu Hub'}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-400">
-                    All menus &middot; Preview hub
+                    {isHubSelected && activeUrl
+                      ? new URL(activeUrl).pathname
+                      : `All menus · ${restaurantSlug ? '/hub/' + restaurantSlug : 'Preview hub'}`}
                   </p>
                 </div>
                 {isHubSelected && <QrCode className="ml-3 h-4 w-4 shrink-0 text-[#5544e4]" />}
