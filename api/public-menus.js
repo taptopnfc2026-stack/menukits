@@ -9,12 +9,11 @@
 
 import { supabaseQuery } from './_supabase.js';
 
-function json(res, status, data) {
+function json(status, data) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      // Allow public access from any origin
       'Access-Control-Allow-Origin': '*',
     },
   });
@@ -22,9 +21,7 @@ function json(res, status, data) {
 
 export default async function handler(req) {
   try {
-    if (req.method !== 'GET') {
-      return json(405, { error: 'Method not allowed' });
-    }
+    if (req.method !== 'GET') return json(405, { error: 'Method not allowed' });
 
     const url = new URL(req.url);
     const slug = url.searchParams.get('slug');
@@ -32,7 +29,7 @@ export default async function handler(req) {
 
     // Single menu by slug (for QR code links)
     if (slug) {
-      const rows = await supabaseQuery('menus', {
+      const result = await supabaseQuery('menus', {
         method: 'GET',
         query: {
           select: '*',
@@ -40,9 +37,12 @@ export default async function handler(req) {
           is_public: 'eq.true',
           limit: '1',
         },
-        token: process.env.SUPABASE_ANON_KEY,
       });
-      const row = Array.isArray(rows) ? rows[0] : null;
+      if (!result.ok) {
+        console.error('[PublicMenus] By-slug failed:', result.status, result.error);
+        return json(502, { error: 'Database error' });
+      }
+      const row = Array.isArray(result.data) ? result.data[0] : null;
       if (!row) return json(404, { error: 'Menu not found' });
       return json(200, row);
     }
@@ -52,34 +52,39 @@ export default async function handler(req) {
       const idList = ids.split(',').map((s) => s.trim()).filter(Boolean);
       if (idList.length === 0) return json(200, []);
 
-      // Build OR filter for multiple IDs
       const orFilter = idList.map((id) => `id.eq.${id}`).join(',');
 
-      const rows = await supabaseQuery('menus', {
+      const result = await supabaseQuery('menus', {
         method: 'GET',
         query: {
           select: '*',
           or: `(${orFilter})`,
           is_public: 'eq.true',
         },
-        token: process.env.SUPABASE_ANON_KEY,
       });
-      return json(200, rows || []);
+      if (!result.ok) {
+        console.error('[PublicMenus] By-ids failed:', result.status, result.error);
+        return json(502, { error: 'Database error' });
+      }
+      return json(200, result.data || []);
     }
 
     // List all public menus (for menu hub)
-    const rows = await supabaseQuery('menus', {
+    const result = await supabaseQuery('menus', {
       method: 'GET',
       query: {
         select: '*',
         is_public: 'eq.true',
         order: 'updated_at.desc',
       },
-      token: process.env.SUPABASE_ANON_KEY,
     });
-    return json(200, rows || []);
+    if (!result.ok) {
+      console.error('[PublicMenus] List-all failed:', result.status, result.error);
+      return json(502, { error: 'Database error' });
+    }
+    return json(200, result.data || []);
   } catch (e) {
-    console.error('Public Menus API error:', e);
+    console.error('[PublicMenus] Unhandled error:', e?.message || e);
     return json(500, { error: 'Internal server error' });
   }
 }

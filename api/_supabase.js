@@ -1,11 +1,14 @@
 /**
  * Supabase REST API wrapper for Vercel Serverless Functions.
  * Uses only Node.js built-in fetch — zero npm dependencies.
+ *
+ * IMPORTANT: SUPABASE_ANON_KEY must be a valid JWT (eyJ... format),
+ * NOT a Stripe publishable key (sb_publishable_...).
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://vogadmkyyuvamjfvcdeo.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_0GvqWFGHxRdpTcyq2QtZrw_TMljIuxP';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 /**
  * Call Supabase Auth API (signup, signin, etc.)
@@ -39,67 +42,82 @@ export async function supabaseAuthAdmin(path, body) {
 }
 
 /**
- * Query Supabase REST API (PostgREST)
+ * Query Supabase REST API (PostgREST).
+ * Returns { ok: true, data } on success or { ok: false, status, error } on failure.
+ * Never throws — callers must check .ok.
+ *
  * @param {string} table - table name
  * @param {object} opts - { method, body, query, token }
  */
 export async function supabaseQuery(table, opts = {}) {
   const { method = 'GET', body, query, token } = opts;
+
+  // Validate URL
   let url;
   try {
     url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
   } catch (e) {
-    throw new Error(`Invalid SUPABASE_URL: ${SUPABASE_URL}`);
+    return { ok: false, error: `Invalid SUPABASE_URL: ${e.message}` };
   }
 
+  // Build query params
   if (query) {
     Object.entries(query).forEach(([k, v]) => {
       url.searchParams.set(k, v);
     });
   }
 
+  // Build headers
   const headers = {
     'apikey': SUPABASE_ANON_KEY,
     'Content-Type': 'application/json',
-    'Prefer': method === 'GET' ? undefined : 'return=representation',
   };
+  if (method !== 'GET') {
+    headers['Prefer'] = 'return=representation';
+  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  } else {
+  } else if (SUPABASE_ANON_KEY) {
     headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
   }
-  // Remove undefined headers
-  Object.keys(headers).forEach(k => headers[k] === undefined && delete headers[k]);
 
+  // Build fetch options
   const fetchOpts = { method, headers };
   if (body && method !== 'GET') {
     fetchOpts.body = JSON.stringify(body);
   }
 
+  // Execute request
   let res;
   try {
     res = await fetch(url.toString(), fetchOpts);
   } catch (e) {
-    throw new Error(`Supabase fetch failed for ${method} ${table}: ${e.message}`);
+    return { ok: false, error: `Network error: ${e.message}` };
   }
 
+  // Handle HTTP errors gracefully
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(`Supabase error ${res.status} on ${method} ${table}: ${errText}`);
+    return { ok: false, status: res.status, error: errText || `HTTP ${res.status}` };
   }
 
+  // Parse response
   const text = await res.text();
   try {
-    return JSON.parse(text);
+    return { ok: true, data: JSON.parse(text) };
   } catch {
-    return text;
+    return { ok: true, data: text };
   }
 }
 
 /**
- * Verify a Supabase access token and return the user.
+ * Verify a Supabase access token and return the user object or null.
  */
 export async function verifySupabaseToken(token) {
+  if (!SUPABASE_ANON_KEY) {
+    console.error('[supabase] SUPABASE_ANON_KEY is not set');
+    return null;
+  }
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
       'apikey': SUPABASE_ANON_KEY,

@@ -32,21 +32,25 @@ export default async function handler(req) {
     }
 
     // Fetch restaurant by slug
-    const restaurants = await supabaseQuery('restaurants', {
+    const restResult = await supabaseQuery('restaurants', {
       method: 'GET',
       query: {
         select: '*',
         slug: `eq.${encodeURIComponent(slug)}`,
         limit: '1',
       },
-      token: process.env.SUPABASE_ANON_KEY,
     });
 
-    const restaurant = Array.isArray(restaurants) ? restaurants[0] : null;
+    if (!restResult.ok) {
+      console.error('[PublicRestaurant] Fetch restaurant failed:', restResult.status, restResult.error);
+      return json(502, { error: 'Database error' });
+    }
+
+    const restaurant = Array.isArray(restResult.data) ? restResult.data[0] : null;
     if (!restaurant) return json(404, { error: 'Restaurant not found' });
 
     // Fetch public menus for this restaurant
-    const menus = await supabaseQuery('menus', {
+    const menuResult = await supabaseQuery('menus', {
       method: 'GET',
       query: {
         select: '*',
@@ -54,8 +58,13 @@ export default async function handler(req) {
         is_public: 'eq.true',
         order: 'updated_at.desc',
       },
-      token: process.env.SUPABASE_ANON_KEY,
     });
+
+    if (!menuResult.ok) {
+      console.error('[PublicRestaurant] Fetch menus failed:', menuResult.status, menuResult.error);
+      // Still return restaurant even if menus fail
+      return json(200, { restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, address: restaurant.address || '', phone: restaurant.phone || '', cover_image_url: restaurant.cover_image_url || null }, menus: [] });
+    }
 
     return json(200, {
       restaurant: {
@@ -66,10 +75,10 @@ export default async function handler(req) {
         phone: restaurant.phone || '',
         cover_image_url: restaurant.cover_image_url || null,
       },
-      menus: menus || [],
+      menus: menuResult.data || [],
     });
   } catch (e) {
-    console.error('Public Restaurant API error:', e);
+    console.error('[PublicRestaurant] Unhandled error:', e?.message || e);
     return json(500, { error: 'Internal server error' });
   }
 }

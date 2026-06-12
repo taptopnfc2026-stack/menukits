@@ -10,16 +10,16 @@
 
 import { supabaseQuery, verifySupabaseToken } from './_supabase.js';
 
-// ─── Helpers ──────────────────────────────────────────────
-function json(res, status, data) {
+// ─── Helpers ──────────────────────────────────────
+function json(status, data) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
-function err(res, status, message) {
-  return json(res, status, { error: message });
+function err(status, message) {
+  return json(status, { error: message });
 }
 
 async function getUser(req) {
@@ -29,7 +29,7 @@ async function getUser(req) {
   return await verifySupabaseToken(token);
 }
 
-// ─── Route dispatcher ─────────────────────────────────────
+// ─── Route dispatcher ─────────────────────────────
 export default async function handler(req) {
   try {
     const url = new URL(req.url);
@@ -52,26 +52,31 @@ export default async function handler(req) {
 
     return err(405, 'Method not allowed');
   } catch (e) {
-    console.error('Menus API error:', e);
+    console.error('[Menus] Unhandled error:', e?.message || e);
     return err(500, 'Internal server error');
   }
 }
 
-// ─── List menus ───────────────────────────────────────────
+// ─── List menus ───────────────────────────────────
 async function handleList(req) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
 
-  const rows = await supabaseQuery('menus', {
+  const result = await supabaseQuery('menus', {
     method: 'GET',
     query: { select: '*', order: 'updated_at.desc' },
-    token: user?.access_token,
+    token: req.headers.get('Authorization')?.replace('Bearer ', '') || undefined,
   });
 
-  return json(200, rows || []);
+  if (!result.ok) {
+    console.error('[Menus] List failed:', result.status, result.error);
+    return err(502, `Database error: ${result.error}`);
+  }
+
+  return json(200, result.data || []);
 }
 
-// ─── Create menu ──────────────────────────────────────────
+// ─── Create menu ──────────────────────────────────
 async function handleCreate(req) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
@@ -86,7 +91,8 @@ async function handleCreate(req) {
     .replace(/^-|-$/g, '')
     + '-' + Date.now().toString(36);
 
-  const row = await supabaseQuery('menus', {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
+  const result = await supabaseQuery('menus', {
     method: 'POST',
     body: {
       user_id: user.id,
@@ -94,37 +100,44 @@ async function handleCreate(req) {
       slug,
       is_public: body.isVisible || false,
       language: body.language || 'en',
-      data: body,           // Store full menu object (sections, dishes, translations, etc.)
+      data: body,
       settings: {},
     },
-    token: user?.access_token,
+    token,
   });
 
-  return json(201, Array.isArray(row) ? row[0] : row);
+  if (!result.ok) {
+    console.error('[Menus] Create failed:', result.status, result.error);
+    return err(502, `Failed to create menu: ${result.error}`);
+  }
+
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  return json(201, row);
 }
 
-// ─── Get single menu ──────────────────────────────────────
+// ─── Get single menu ──────────────────────────────
 async function handleGet(req, id) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
 
-  const rows = await supabaseQuery('menus', {
+  const result = await supabaseQuery('menus', {
     method: 'GET',
-    query: {
-      select: '*',
-      id: `eq.${id}`,
-      limit: '1',
-    },
-    token: user?.access_token,
+    query: { select: '*', id: `eq.${id}`, limit: '1' },
+    token: req.headers.get('Authorization')?.replace('Bearer ', '') || undefined,
   });
 
-  const row = (Array.isArray(rows) ? rows[0] : null);
+  if (!result.ok) {
+    console.error('[Menus] Get failed:', result.status, result.error);
+    return err(502, `Database error: ${result.error}`);
+  }
+
+  const row = Array.isArray(result.data) ? result.data[0] : null;
   if (!row) return err(404, 'Menu not found');
 
   return json(200, row);
 }
 
-// ─── Update menu ──────────────────────────────────────────
+// ─── Update menu ──────────────────────────────────
 async function handleUpdate(req, id) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
@@ -132,32 +145,48 @@ async function handleUpdate(req, id) {
   const body = await req.json().catch(() => null);
   if (!body) return err(400, 'Invalid body');
 
-  const rows = await supabaseQuery('menus', {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
+  const result = await supabaseQuery('menus', {
     method: 'PUT',
     query: { id: `eq.${id}` },
     body: {
       name: body.title,
       is_public: body.isVisible !== false,
-      data: body,         // Full replacement of menu data
+      data: body,
     },
-    token: user?.access_token,
+    token,
   });
 
-  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!result.ok) {
+    // If row not found (empty array from PUT), return 404 so caller can retry as POST
+    if (result.status === 404 || (Array.isArray(result.data) && result.data.length === 0)) {
+      return err(404, 'Menu not found');
+    }
+    console.error('[Menus] Update failed:', result.status, result.error);
+    return err(502, `Failed to update menu: ${result.error}`);
+  }
+
+  const row = Array.isArray(result.data) ? result.data[0] : null;
   if (!row) return err(404, 'Menu not found');
   return json(200, row);
 }
 
-// ─── Delete menu ──────────────────────────────────────────
+// ─── Delete menu ──────────────────────────────────
 async function handleDelete(req, id) {
   const user = await getUser(req);
   if (!user) return err(401, 'Unauthorized');
 
-  const res = await supabaseQuery('menus', {
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
+  const result = await supabaseQuery('menus', {
     method: 'DELETE',
     query: { id: `eq.${id}` },
-    token: user?.access_token,
+    token,
   });
+
+  if (!result.ok) {
+    console.error('[Menus] Delete failed:', result.status, result.error);
+    return err(502, `Failed to delete menu: ${result.error}`);
+  }
 
   return json(200, { success: true });
 }
