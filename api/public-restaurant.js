@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     // Fetch restaurant by slug
     const restResult = await supabaseQuery('restaurants', {
       method: 'GET',
-      query: { select: '*', slug: `eq.${encodeURIComponent(slug)}`, limit: '1' },
+      query: { select: 'id,name,slug,address,phone,website,user_id', slug: `eq.${encodeURIComponent(slug)}`, limit: '1' },
     });
 
     if (!restResult.ok) {
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     if (!menuResult.ok) {
       console.error('[PublicRestaurant] Fetch menus failed:', menuResult.status, menuResult.error);
       return json(res, 200, {
-        restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, address: restaurant.address || '', phone: restaurant.phone || '', cover_image_url: restaurant.cover_image_url || null },
+        restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, address: restaurant.address || '', phone: restaurant.phone || '' },
         menus: [],
       });
     }
@@ -67,7 +67,6 @@ export default async function handler(req, res) {
         slug: restaurant.slug,
         address: restaurant.address || '',
         phone: restaurant.phone || '',
-        cover_image_url: restaurant.cover_image_url || null,
       },
       menus: menuResult.data || [],
     });
