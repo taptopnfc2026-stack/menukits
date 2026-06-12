@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 
 // Generate restaurant slug URL (custom URL for each business)
 function getRestaurantSlugUrl(): string {
@@ -29,7 +28,7 @@ const SIZE_OPTIONS = [
 export default function QRCodePage() {
   const { completeStep = () => {} } = useChecklist();
   completeStep('qr-code');
-  const { user } = useAuth();
+  const { user, token: authToken } = useAuth();
   const [copied, setCopied] = useState(false);
   const [selectedMenuIndex, setSelectedMenuIndex] = useState<number | null>(null);
   const [isHubSelected, setIsHubSelected] = useState(true);
@@ -67,41 +66,49 @@ export default function QRCodePage() {
   // Load restaurant slug on mount; auto-create if missing
   useEffect(() => {
     async function loadOrCreateSlug() {
+      if (!authToken) {
+        console.warn('[QR] No auth token available for restaurant lookup');
+        return;
+      }
       try {
-        const session = await supabase.auth.getSession();
-        if (!session?.data?.session?.access_token) return;
-
-        const token = session.data.session.access_token;
         const res = await fetch('/api/restaurants', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${authToken}` },
         });
         if (res.ok) {
           const rows = await res.json();
+          console.log('[QR] Restaurants response:', rows);
           if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
             setRestaurantSlug(rows[0].slug);
             return;
           }
+        } else {
+          console.warn('[QR] GET restaurants failed:', res.status);
         }
 
         // No restaurant yet — create one automatically
+        console.log('[QR] Creating new restaurant record...');
         const createRes = await fetch('/api/restaurants', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({ name: 'My Restaurant' }),
         });
         if (createRes.ok) {
           const created = await createRes.json();
+          console.log('[QR] Restaurant created:', created);
           if (created?.slug) setRestaurantSlug(created.slug);
+        } else {
+          const errText = await createRes.text().catch(() => '');
+          console.error('[QR] POST restaurant failed:', createRes.status, errText);
         }
-      } catch {
-        /* ignore */
+      } catch (e) {
+        console.error('[QR] Restaurant load/create error:', e);
       }
     }
     loadOrCreateSlug();
-  }, []);
+  }, [authToken]);
 
   const selectedMenu = selectedMenuIndex !== null ? menus[selectedMenuIndex] : null;
   const menuUrl = useMemo(() => selectedMenu ? getMenuPreviewUrl(selectedMenu.id) : '', [selectedMenu]);
