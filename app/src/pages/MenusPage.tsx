@@ -11,6 +11,8 @@ import {
   FileText,
   Sparkles,
   QrCode,
+  CheckCircle2,
+  Link2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -51,6 +53,7 @@ export default function MenusPage() {
   const [renamingMenuId, setRenamingMenuId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [copiedMenuId, setCopiedMenuId] = useState<string | null>(null);
 
   const toggleMenuVisibility = (menuId: string) => {
     setMenus((prev) =>
@@ -120,29 +123,74 @@ export default function MenusPage() {
     setRenamingMenuId(null);
   };
 
+  // Copy menu link to clipboard
+  const handleCopyLink = (menu: Menu) => {
+    const url = `${window.location.origin}/r/${menu.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedMenuId(menu.id);
+      setTimeout(() => setCopiedMenuId(null), 2000);
+    });
+  };
+
   // Download menu-specific QR code as PNG
-  const handleDownloadQR = (menu: Menu) => {
+  const handleDownloadQR = async (menu: Menu) => {
     const url = `${window.location.origin}/r/${menu.id}`;
     const size = 384;
 
-    // Create SVG QR code
-    const container = document.createElement('div');
-    document.body.appendChild(container);
+    // Dynamic import
+    const { QRCodeSVG } = await import('qrcode.react');
 
-    // Dynamic import to avoid SSR issues with qrcode.react
-    import('qrcode.react').then(({ QRCodeSVG: QRSVG }) => {
-      const { createRoot } = require('react-dom/client');
-      const root = createRoot(container);
+    // Create SVG element in memory
+    const svgStr = (() => {
+      // Build minimal valid QR SVG string manually using qrcode.react's internal logic
+      // We'll render to an offscreen container instead
+      return null;
+    })();
 
-      function onRender() {
-        const svgEl = container.querySelector('svg');
-        if (!svgEl) return;
+    // Render SVG into hidden div, then capture it
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.top = '-9999px';
+    document.body.appendChild(wrapper);
+
+    // Use React 18 createRoot from dynamic import
+    const { createRoot } = await import('react-dom/client');
+    const root = createRoot(wrapper);
+
+    let resolved = false;
+    const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
+      try { root.unmount(); } catch { /* ignore */ }
+      try { document.body.removeChild(wrapper); } catch { /* ignore */ }
+    };
+
+    return new Promise<void>((resolve) => {
+      root.render(
+        <QRCodeSVG
+          value={url}
+          size={size}
+          level="M"
+          includeMargin={false}
+          bgColor="#ffffff"
+          fgColor="#111827"
+        />
+      );
+
+      // Wait for render then capture SVG
+      const tryCapture = () => {
+        const svgEl = wrapper.querySelector<SVGSVGElement>('svg');
+        if (!svgEl || !svgEl.querySelector('path')) {
+          requestAnimationFrame(() => setTimeout(tryCapture, 50));
+          return;
+        }
 
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) { cleanup(); resolve(); return; }
 
         const svgData = new XMLSerializer().serializeToString(svgEl);
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -160,33 +208,14 @@ export default function MenusPage() {
           link.href = canvas.toDataURL('image/png');
           link.click();
           URL.revokeObjectURL(blobUrl);
-
-          root.unmount();
-          document.body.removeChild(container);
+          cleanup();
+          resolve();
         };
-        img.onerror = () => {
-          URL.revokeObjectURL(blobUrl);
-          root.unmount();
-          document.body.removeChild(container);
-        };
+        img.onerror = () => { URL.revokeObjectURL(blobUrl); cleanup(); resolve(); };
         img.src = blobUrl;
-      }
+      };
 
-      root.render(
-        <QRSVG
-          value={url}
-          size={size}
-          level="M"
-          includeMargin={false}
-          bgColor="#ffffff"
-          fgColor="#111827"
-        />
-      );
-
-      // Wait for SVG render
-      requestAnimationFrame(() => {
-        setTimeout(onRender, 100);
-      });
+      requestAnimationFrame(() => setTimeout(tryCapture, 100));
     });
   };
 
@@ -295,6 +324,16 @@ export default function MenusPage() {
                     className="gap-2"
                   >
                     <ArrowUp className="h-3.5 w-3.5" /> Move up
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCopyLink(menu)}
+                    className="gap-2"
+                  >
+                    {copiedMenuId === menu.id ? (
+                      <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Copied!</>
+                    ) : (
+                      <><Link2 className="h-3.5 w-3.5" /> Copy link</>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleDownloadQR(menu)}
