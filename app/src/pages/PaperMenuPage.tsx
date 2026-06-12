@@ -387,7 +387,7 @@ const A4_LANDSCAPE_H_MM = 210;
 const PAGE_MARGIN_MM = 12;
 
 /* How many rows fit per page (varies by style) */
-const ROWS_PER_PAGE = 18;
+const ROWS_PER_PAGE = 12;
 
 /* ===================================================================
    Auto-detection: analyze dish name + description for allergen keywords
@@ -610,27 +610,26 @@ function PaperMenuPageContent() {
   .title-row h1{font-size:22pt;font-weight:800;letter-spacing:0.15em;margin:0;color:${style.headerText};}
   .title-row p{font-size:9pt;margin:2mm 0 0;color:${style.textColor};opacity:0.65;text-transform:uppercase;letter-spacing:0.08em;}
   
-  .matrix-table{width:100%;border-collapse:collapse;font-size:7.5pt;}
+  .matrix-table{width:100%;border-collapse:collapse;font-size:8.5pt;}
   .matrix-table th{background:${style.headerBg};color:${style.headerText};padding:2.5mm 1mm;
-    text-align:center;font-weight:700;border:1px solid ${style.borderColor};font-size:7pt;vertical-align:bottom;}
-  .matrix-table th .icon-circle{display:inline-flex;width:7mm;height:7mm;border-radius:50%;
-    align-items:center;justify-content:center;font-size:6pt;font-weight:800;color:#fff;margin-bottom:1mm;}
+    text-align:center;font-weight:700;border:1px solid ${style.borderColor};font-size:8pt;vertical-align:bottom;}
+  .matrix-table th .icon-circle{display:inline-flex;width:8mm;height:8mm;border-radius:50%;
+    align-items:center;justify-content:center;font-size:7pt;font-weight:800;color:#fff;margin-bottom:1mm;}
   .matrix-table th .allergen-name{display:block;font-weight:600;letter-spacing:0.02em;}
   .matrix-table td{border:1px solid ${style.borderColor};padding:1.8mm 2mm;
     text-align:left;vertical-align:middle;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58mm;}
-  .matrix-table td.dish-cell{font-size:8pt;}
+  .matrix-table td.dish-cell{font-size:9pt;}
   .matrix-table td.allergen-cell{text-align:center;padding:1.5mm 1mm;width:${(A4_LANDSCAPE_W_MM - PAGE_MARGIN_MM*2 - 62) / 14}mm;min-width:0;}
   .matrix-table tr:nth-child(even) td{background:${style.rowEvenBg};}
   .active-cell{background:${style.cellActiveBg} !important;border:2px solid ${style.cellActiveBorder};
-    border-radius:50%;width:6mm;height:6mm;display:inline-flex;align-items:center;justify-content:center;
-    font-size:5pt;font-weight:900;color:${style.cellActiveBorder};}
+    border-radius:50%;width:7mm;height:7mm;display:inline-flex;align-items:center;justify-content:center;
+    font-size:6.5pt;font-weight:900;color:${style.cellActiveBorder};}
   
-  .legend{margin-top:4mm;display:flex;flex-wrap:wrap;gap:1.5mm;justify-content:center;background:${style.legendBg};padding:2.5mm 3mm;border-radius:2mm;
-    border:1px solid ${style.borderColor};}
-  .legend-item{font-size:6pt;color:${style.legendText};display:flex;align-items:center;gap:1mm;max-width:32%;}
+  .legend{margin-top:4mm;display:grid;grid-template-columns:repeat(2,1fr);gap:2mm 6mm;justify-items:stretch;background:${style.legendBg};padding:3mm 4mm;border-radius:2mm;border:1px solid ${style.borderColor};}
+  .legend-item{font-size:8pt;color:${style.legendText};display:flex;align-items:center;gap:1.5mm;}
   .legend-item b{color:${style.headerText};}
-  .num-badge{display:inline-flex;align-items:center;justify-content:center;width:4.5mm;height:4.5mm;
-    border-radius:50%;font-size:5pt;font-weight:800;color:#fff;margin-right:1mm;flex-shrink:0;}
+  .num-badge{display:inline-flex;align-items:center;justify-content:center;width:5.5mm;height:5.5mm;
+    border-radius:50%;font-size:6.5pt;font-weight:800;color:#fff;margin-right:0.5mm;flex-shrink:0;}
   
   @media print{ body{background:#fff;} .page{box-shadow:none!important;margin:0;} }
 </style></head><body>`;
@@ -959,7 +958,7 @@ function AllergenPosterPage({
         {/* Matrix Table */}
         <table style={{
           width: '100%', borderCollapse: 'collapse',
-          fontSize: `${7 * scale}px`, tableLayout: 'fixed',
+          fontSize: `${8.5 * scale}px`, tableLayout: 'fixed',
         }}>
           <thead>
             <tr>
@@ -968,7 +967,7 @@ function AllergenPosterPage({
                 width: `${56 * scale}mm`, padding: `${2.5 * scale}mm ${1 * scale}mm`,
                 background: style.headerBg, color: style.headerText,
                 border: `1px solid ${style.borderColor}`,
-                textAlign: 'left', fontWeight: 700, fontSize: `${7 * scale}px`,
+                textAlign: 'left', fontWeight: 700, fontSize: `${8.5 * scale}px`,
                 verticalAlign: 'bottom',
               }}>
                 <span>DISH NAME</span>
@@ -981,14 +980,14 @@ function AllergenPosterPage({
                     padding: `${2 * scale}mm ${0.5 * scale}mm`,
                     background: style.headerBg, color: style.headerText,
                     border: `1px solid ${style.borderColor}`,
-                    textAlign: 'center', fontWeight: 700, fontSize: `${6.5 * scale}px`,
+                    textAlign: 'center', fontWeight: 700, fontSize: `${8 * scale}px`,
                     verticalAlign: 'bottom',
                   }}>
                     {/* Icon circle */}
                     <div style={{
-                      display: 'inline-flex', width: `${7 * scale}mm`, height: `${7 * scale}mm`,
+                      display: 'inline-flex', width: `${8 * scale}mm`, height: `${8 * scale}mm`,
                       borderRadius: '50%', alignItems: 'center', justifyContent: 'center',
-                      fontSize: `${5.5 * scale}px`, fontWeight: 800, color: '#fff',
+                      fontSize: `${6.5 * scale}px`, fontWeight: 800, color: '#fff',
                       background: ag.color, marginBottom: `${1 * scale}mm`,
                     }}>{ag.icon}</div>
                     {/* Allergen name */}
@@ -1010,7 +1009,7 @@ function AllergenPosterPage({
                     padding: `${1.8 * scale}mm ${2 * scale}mm`,
                     verticalAlign: 'middle', fontWeight: 500,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    maxWidth: `${56 * scale}mm`, fontSize: `${7.5 * scale}px`,
+                    maxWidth: `${56 * scale}mm`, fontSize: `${9 * scale}px`,
                     background: isEven ? style.rowEvenBg : undefined,
                     color: style.textColor,
                   }}>
@@ -1032,10 +1031,10 @@ function AllergenPosterPage({
                         {hasIt ? (
                           <div style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: `${6 * scale}mm`, height: `${6 * scale}mm`,
+                            width: `${7 * scale}mm`, height: `${7 * scale}mm`,
                             borderRadius: '50%',
                             background: ag.color, color: '#fff',
-                            fontSize: `${5 * scale}px`, fontWeight: 900,
+                            fontSize: `${6 * scale}px`, fontWeight: 900,
                             boxShadow: `0 1px 3px rgba(0,0,0,0.15)`,
                           }}>✓</div>
                         ) : null}
@@ -1067,28 +1066,30 @@ function AllergenPosterPage({
           </tbody>
         </table>
 
-        {/* Legend */}
+        {/* Legend — 2-column grid for clear layout */}
         <div style={{
-          marginTop: `${4 * scale}mm`, display: 'flex', flexWrap: 'wrap', gap: `${1.5 * scale}mm`,
-          justifyContent: 'center', background: style.legendBg,
-          padding: `${2.5 * scale}mm ${3 * scale}mm`,
+          marginTop: `${4 * scale}mm`,
+          display: 'grid', gridTemplateColumns: `repeat(2, 1fr)`,
+          gap: `${1.5 * scale}mm ${6 * scale}mm`,
+          justifyContent: 'stretch', background: style.legendBg,
+          padding: `${3 * scale}mm ${4 * scale}mm`,
           borderRadius: 2, border: `1px solid ${style.borderColor}`,
+          alignItems: 'center',
         }}>
           {EU_ALLERGENS.map(ag => {
             const name = (displayTr as any)[ag.key] || ag.id;
             const desc = (displayTr as any)[ag.descKey] || '';
             return (
               <div key={ag.id} style={{
-                fontSize: `${5.5 * scale}px`, color: style.legendText,
-                display: 'flex', alignItems: 'flex-start', gap: `${1 * scale}mm`,
-                maxWidth: `${(pageW - PAGE_MARGIN_SCALE * 2 - 10) / 3 * scale}mm`,
+                fontSize: `${8 * scale}px`, color: style.legendText,
+                display: 'flex', alignItems: 'center', gap: `${1.5 * scale}mm`,
                 lineHeight: 1.35,
               }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: `${4.5 * scale}mm`, height: `${4.5 * scale}mm`, borderRadius: '50%',
-                  fontSize: `${5 * scale}px`, fontWeight: 800, color: '#fff',
-                  background: ag.color, flexShrink: 0, marginTop: '1px',
+                  width: `${5.5 * scale}mm`, height: `${5.5 * scale}mm`, borderRadius: '50%',
+                  fontSize: `${6 * scale}px`, fontWeight: 800, color: '#fff',
+                  background: ag.color, flexShrink: 0,
                 }}>{ag.number}</span>
                 <span><b style={{ color: style.headerText }}>{name}</b>: {desc}</span>
               </div>
