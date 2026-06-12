@@ -45,7 +45,12 @@ export async function supabaseAuthAdmin(path, body) {
  */
 export async function supabaseQuery(table, opts = {}) {
   const { method = 'GET', body, query, token } = opts;
-  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  let url;
+  try {
+    url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  } catch (e) {
+    throw new Error(`Invalid SUPABASE_URL: ${SUPABASE_URL}`);
+  }
 
   if (query) {
     Object.entries(query).forEach(([k, v]) => {
@@ -71,7 +76,18 @@ export async function supabaseQuery(table, opts = {}) {
     fetchOpts.body = JSON.stringify(body);
   }
 
-  const res = await fetch(url.toString(), fetchOpts);
+  let res;
+  try {
+    res = await fetch(url.toString(), fetchOpts);
+  } catch (e) {
+    throw new Error(`Supabase fetch failed for ${method} ${table}: ${e.message}`);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Supabase error ${res.status} on ${method} ${table}: ${errText}`);
+  }
+
   const text = await res.text();
   try {
     return JSON.parse(text);

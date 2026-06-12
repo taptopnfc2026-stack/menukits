@@ -56,7 +56,7 @@ export default async function handler(req) {
       if (!body) return err(400, 'Invalid body');
 
       // Build update payload with only allowed fields
-      const updateData: Record<string, any> = {};
+      const updateData = {};
       if (body.name !== undefined) updateData.name = body.name;
       if (body.slug !== undefined) {
         // Sanitize slug
@@ -153,7 +153,7 @@ export default async function handler(req) {
 
     return err(405, 'Method not allowed');
   } catch (e) {
-    console.error('Restaurants API error:', e);
-    return err(500, 'Internal server error');
+    console.error('Restaurants API error:', e?.message || e);
+    return err(500, e?.message || 'Internal server error');
   }
 }
