@@ -69,6 +69,7 @@ async function handleList(req, res) {
     method: 'GET',
     query: {
       select: 'id,name,slug,address,phone,website,cover_image_url',
+      user_id: `eq.${user.id}`,
       order: 'created_at.asc',
     },
     useServiceRole: true,

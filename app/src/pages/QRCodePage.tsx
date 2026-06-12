@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
+import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -20,64 +20,84 @@ export default function QRCodePage() {
   const [copied, setCopied] = useState(false);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [restaurantSlug, setRestaurantSlug] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string>('');
   const pickerRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<SVGSVGElement>(null);
 
   // Load restaurant slug on mount
   useEffect(() => {
     async function loadOrCreateSlug() {
-      if (!authToken) return;
+      if (!authToken) {
+        setIsLoading(false);
+        setLoadError('Not authenticated. Please log in again.');
+        return;
+      }
+      setIsLoading(true);
+      setLoadError('');
       try {
         const res = await fetch('/api/restaurants', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        if (res.ok) {
-          const rows = await res.json();
-          if (Array.isArray(rows) && rows.length > 0) {
-            const rest = rows[0];
-            if (!rest.slug || rest.slug.trim() === '') {
-              const generatedSlug = (rest.name || 'my-restaurant')
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-|-$/g, '')
-                + '-' + Date.now().toString(36);
-
-              const updateRes = await fetch('/api/restaurants', {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({ id: rest.id, slug: generatedSlug }),
-              });
-              if (updateRes.ok) {
-                const updated = await updateRes.json();
-                if (updated?.slug) setRestaurantSlug(updated.slug);
-              } else {
-                setRestaurantSlug(generatedSlug);
-              }
-              return;
-            }
-            setRestaurantSlug(rest.slug);
-            return;
-          }
+        if (!res.ok) {
+          const errText = await res.text().catch(() => 'Unknown error');
+          throw new Error(`API error (${res.status}): ${errText}`);
         }
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const rest = rows[0];
+          if (!rest.slug || rest.slug.trim() === '') {
+            // Auto-generate slug for legacy records
+            const generatedSlug = (rest.name || 'my-restaurant')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '')
+              + '-' + Date.now().toString(36);
 
-        // No restaurant yet — create one
-        const createRes = await fetch('/api/restaurants', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ name: 'My Restaurant' }),
-        });
-        if (createRes.ok) {
-          const created = await createRes.json();
-          if (created?.slug) setRestaurantSlug(created.slug);
+            const updateRes = await fetch('/api/restaurants', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({ id: rest.id, slug: generatedSlug }),
+            });
+            if (updateRes.ok) {
+              const updated = await updateRes.json();
+              if (updated?.slug) setRestaurantSlug(updated.slug);
+              else setRestaurantSlug(generatedSlug);
+            } else {
+              // Even if update fails, use the generated slug for display
+              console.warn('[QR] Slug update failed, using local slug');
+              setRestaurantSlug(generatedSlug);
+            }
+          } else {
+            setRestaurantSlug(rest.slug);
+          }
+        } else {
+          // No restaurant yet — create one
+          const createRes = await fetch('/api/restaurants', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ name: 'My Restaurant' }),
+          });
+          if (createRes.ok) {
+            const created = await createRes.json();
+            if (created?.slug) setRestaurantSlug(created.slug);
+            else setLoadError('Restaurant created but no slug returned');
+          } else {
+            const errText = await createRes.text().catch(() => 'Unknown error');
+            throw new Error(`Create failed (${createRes.status}): ${errText}`);
+          }
         }
       } catch (e) {
         console.error('[QR] Restaurant load/create error:', e);
+        setLoadError(e instanceof Error ? e.message : 'Failed to load restaurant data');
+      } finally {
+        setIsLoading(false);
       }
     }
     loadOrCreateSlug();
@@ -173,9 +193,24 @@ export default function QRCodePage() {
               </span>
             </div>
           </>
-        ) : (
+        ) : isLoading ? (
           <div className="mb-6 flex h-[236px] w-[236px] items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
             <Loader2 className="h-6 w-6 animate-spin text-[#5544e4]" />
+          </div>
+        ) : (
+          <div className="mb-6 flex h-[236px] w-[236px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-red-200 bg-red-50/50 p-4 text-center">
+            <AlertCircle className="h-8 w-8 text-red-400" />
+            <p className="text-xs text-red-600 max-w-[200px] leading-relaxed">{loadError || 'Unable to load QR code'}</p>
+            <button
+              onClick={() => {
+                setIsLoading(true);
+                setLoadError('');
+                setRestaurantSlug('');
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#5544e4] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#4433cc] transition-colors"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
           </div>
         )}
 
