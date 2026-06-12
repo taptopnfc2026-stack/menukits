@@ -173,20 +173,14 @@ async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> |
     const remaps: Record<string, string> = {};
 
     for (const menu of menus) {
-      // Try UPDATE first; if menu doesn't exist yet (404), CREATE it
-      let res = await fetch(`/api/menus/${menu.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(menu),
-      });
+      // Heuristic: numeric/timestamp IDs are local-only — go straight to POST
+      const isLocalId = /^\d{10,}$/.test(menu.id);
 
-      // If PUT returned 404 (menu not in DB yet), create it via POST
-      if (res.status === 404) {
-        res = await fetch('/api/menus', {
-          method: 'POST',
+      let res: Response;
+      if (!isLocalId) {
+        // Try UPDATE for menus that likely exist in DB
+        res = await fetch(`/api/menus/${menu.id}`, {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
@@ -194,20 +188,34 @@ async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> |
           body: JSON.stringify(menu),
         });
 
-        // If POST succeeded, update local ID to match DB-generated ID
-        if (res.ok) {
-          try {
-            const created = await res.json();
-            if (created?.id && created.id !== menu.id) {
-              remaps[menu.id] = created.id;
-              console.log('Menu created in cloud, ID updated:', menu.id, '→', created.id);
-            }
-          } catch {}
-        }
+        // If PUT succeeded, continue to next menu
+        if (res.ok) continue;
+
+        // PUT failed (404 or other) — fall through to create via POST
+        console.warn(`[Sync] PUT failed for ${menu.id} (${res.status}), trying POST...`);
       }
 
-      if (!res.ok) {
-        console.warn('Failed to sync menu', menu.id, res.status);
+      // CREATE new menu via POST
+      res = await fetch('/api/menus', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(menu),
+      });
+
+      if (res.ok) {
+        try {
+          const created = await res.json();
+          if (created?.id && created.id !== menu.id) {
+            remaps[menu.id] = created.id;
+            console.log('[Sync] Menu created:', menu.id, '→', created.id);
+          }
+        } catch {}
+      } else {
+        const errText = await res.text().catch(() => '');
+        console.error(`[Sync] Failed to save menu ${menu.id}:`, res.status, errText);
       }
     }
 
