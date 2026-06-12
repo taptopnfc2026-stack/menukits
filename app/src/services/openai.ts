@@ -1,21 +1,34 @@
 /**
- * OpenAI API 服务 - 菜单图片识别
+ * AI API 服务 — 菜单图片识别 & 翻译
+ *
+ * 支持多个 AI 提供商：
+ *   - Mistral AI    (Pixtral Large — EU 原生，推荐)
+ *   - Azure OpenAI  (GPT-4V/4o)
+ *   - Moonshot       (向后兼容)
  *
  * 流程：
- * 1. 将用户上传的图片转为 base64
- * 2. 调用 GPT-4o Vision API 分析菜单图片
- * 3. 将返回的 JSON 解析为 Menu 数据结构
+ * 1. 读取用户在 Settings 页面配置的提供商和 API Key
+ * 2. 开发环境通过 Vite 代理转发（避免 CORS）
+ * 3. 生产环境通过 Vercel Serverless Function 代理
  */
 
 import type { Menu, Section, Dish } from '@/types';
+import { loadAISettings, hasRecognitionKey, hasTranslationKey } from '@/types/ai-settings';
 
-// ---- 配置 ----
+// ---- PDF.js import (lazy-loaded for bundle size) ----
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+async function getPdfJs() {
+  if (!pdfjsLib) {
+    const mod = await import('pdfjs-dist');
+    mod.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${mod.version}/pdf.worker.min.mjs`;
+    pdfjsLib = mod;
+  }
+  return pdfjsLib;
+}
+
+// ---- 环境判断 ----
 const isDev = import.meta.env.DEV;
-// 开发环境：通过 Vite 代理转发到 Moonshot
-// 生产环境：调用 Vercel Serverless Function（API Key 仅存服务端，GDPR 合规）
 const API_URL = isDev ? '/api/openai/v1/chat/completions' : '/api/menu-recognize';
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
-const MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 
 // ---- 类型 ----
 interface RecognizedDish {
@@ -57,30 +70,22 @@ Output format:
 
 // ---- 工具函数 ----
 
-/**
- * 压缩图片：缩小尺寸并降低质量，大幅减少 base64 大小
- * 目标：宽度不超过 1024px，质量 0.8，可减少 60-80% 体积
- */
 function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      // 计算缩放后的尺寸
       let width = img.width;
       let height = img.height;
       if (width > maxWidth) {
         height = (height * maxWidth) / width;
         width = maxWidth;
       }
-
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) { reject(new Error('Canvas context unavailable')); return; }
       ctx.drawImage(img, 0, 0, width, height);
-
-      // 导出为 JPEG（比 PNG 小得多）
       resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
     };
     img.onerror = reject;
@@ -88,36 +93,135 @@ function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<stri
   });
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // 去掉 data:image/xxx;base64, 前缀，只保留 base64 内容
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+/**
+ * Convert a PDF file to an array of base64 JPEG images (one per page).
+ * Renders each page at 1.5x scale for good OCR quality.
+ */
+async function convertPdfToImages(
+  file: File,
+  onProgress?: (message: string) => void
+): Promise<string[]> {
+  const pdfjs = await getPdfJs();
+  onProgress?.(`Loading PDF (${file.name})...`);
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+  const numPages = pdf.numPages;
+  if (numPages === 0) throw new Error('PDF has no pages');
+
+  // Limit to first 10 pages to avoid huge requests
+  const pagesToRender = Math.min(numPages, 10);
+  if (numPages > 10) {
+    console.warn(`[pdf] PDF has ${numPages} pages, rendering first ${pagesToRender}`);
+  }
+
+  const images: string[] = [];
+  for (let i = 1; i <= pagesToRender; i++) {
+    onProgress?.(`Rendering page ${i}/${pagesToRender}...`);
+    const page = await pdf.getPage(i);
+    const scale = 1.5; // Good quality for AI recognition
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+
+    await page.render({
+      canvasContext: ctx,
+      viewport,
+    }).promise;
+
+    // White background (some PDFs render transparent)
+    const jpegData = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+    images.push(jpegData);
+  }
+
+  onProgress?.(`PDF 渲染完成：${images.length} 页`);
+  URL.revokeObjectURL(URL.createObjectURL(file));
+  return images;
 }
 
-function getMimeType(file: File): string {
-  if (file.type === 'application/pdf') return 'application/pdf';
-  if (file.type && file.type.startsWith('image/')) return file.type;
-  // 根据文件扩展名推断 MIME 类型
-  const ext = file.name.split('.').pop()?.toLowerCase();
-  const mimeMap: Record<string, string> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    webp: 'image/webp',
-    bmp: 'image/bmp',
-    tiff: 'image/tiff',
-    tif: 'image/tiff',
-    gif: 'image/gif',
+/**
+ * Attempt to repair truncated JSON from OpenAI (when response hits max_tokens limit).
+ * Strategy: find the last complete object/array and close all open brackets.
+ */
+function tryRepairTruncatedJson(jsonStr: string): string {
+  let s = jsonStr.trimEnd();
+
+  // Remove trailing incomplete values (strings, numbers, etc.)
+  // Try stripping back to last known good structure
+  const patterns = [
+    /,\s*"[^"]*"\s*:\s*[^}]*$/,    // trailing key-value pair
+    /,\s*\{[^}]*$/,                  // trailing incomplete object in array
+    /,\s*[^,}\]]*$/,                 // trailing incomplete value
+  ];
+  for (const p of patterns) {
+    if (!isValidJson(s)) {
+      s = s.replace(p, '');
+    }
+  }
+
+  // Count brackets and close them
+  let stack: string[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '{' || ch === '[') {
+      stack.push(ch);
+    } else if (ch === '}') {
+      if (stack[stack.length - 1] === '{') stack.pop();
+    } else if (ch === ']') {
+      if (stack[stack.length - 1] === '[') stack.pop();
+    }
+  }
+
+  // Close remaining brackets
+  while (stack.length > 0) {
+    const open = stack.pop()!;
+    s += open === '{' ? '}' : ']';
+  }
+
+  // Final validation
+  try {
+    JSON.parse(s);
+    console.log('[openai] JSON repair succeeded');
+    return s;
+  } catch {
+    throw new Error('AI response was truncated. The menu may be too large — try uploading fewer pages or a simpler menu.');
+  }
+}
+
+function isValidJson(s: string): boolean {
+  try { JSON.parse(s); return true; } catch { return false; }
+}
+
+// ---- 获取当前配置 ----
+function getProviderConfig() {
+  const settings = loadAISettings();
+
+  // 旧的 Moonshot 兼容（.env 配置）
+  const legacyApiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
+  const legacyModel = import.meta.env.VITE_OPENAI_MODEL || '';
+
+  return {
+    recognitionProvider: settings.recognitionProvider,
+    translationProvider: settings.translationProvider,
+    mistralApiKey: settings.mistral.apiKey || legacyApiKey,
+    mistralRecognitionModel: settings.mistral.recognitionModel || 'pixtral-large-latest',
+    mistralTranslationModel: settings.mistral.translationModel || 'mistral-large-latest',
+    azureApiKey: settings.azure.apiKey,
+    azureEndpoint: settings.azure.endpoint,
+    azureRecognitionDeployment: settings.azure.recognitionDeployment || 'gpt-4o',
+    azureTranslationDeployment: settings.azure.translationDeployment || 'gpt-4o',
+    azureApiVersion: settings.azure.apiVersion || '2024-10-21',
+    deeplApiKey: settings.deepl.apiKey,
+    deeplType: settings.deepl.type || 'free',
+    openaiApiKey: settings.openai.apiKey,
+    openaiRecognitionModel: settings.openai.recognitionModel || 'gpt-4o',
+    openaiTranslationModel: settings.openai.translationModel || 'gpt-4o-mini',
+    // 向后兼容
+    hasAnyKey: hasRecognitionKey(settings) || hasTranslationKey(settings) || (legacyApiKey && !legacyApiKey.startsWith('填写你的')),
   };
-  return mimeMap[ext || ''] || 'image/png'; // 默认 fallback 为 png
 }
 
 // ---- 核心 API 调用 ----
@@ -125,22 +229,24 @@ export async function recognizeMenuFromImages(
   files: File[],
   onProgress?: (message: string) => void
 ): Promise<{ sections: RecognizedSection[] } | null> {
-  if (!API_KEY || API_KEY.startsWith('填写你的')) {
-    console.warn('API Key not configured. Please set VITE_OPENAI_API_KEY in .env');
+  const config = getProviderConfig();
+
+  if (!config.hasAnyKey) {
+    console.warn('No AI provider configured. Please set API keys in Settings.');
     return null;
   }
 
-  // 筛选出图片文件（PDF 暂时跳过，后续可扩展）
   const imageFiles = files.filter((f) => f.type && f.type.startsWith('image/'));
+  const pdfFiles = files.filter((f) => f.type === 'application/pdf');
 
-  if (imageFiles.length === 0) {
-    console.warn('No image files found for recognition');
+  if (imageFiles.length === 0 && pdfFiles.length === 0) {
+    console.warn('No image or PDF files found for recognition');
     return null;
   }
 
-  onProgress?.('正在上传图片...');
+  onProgress?.('Preparing images...');
 
-  // 将图片转为 base64（带压缩，减少 60-80% 体积）
+  // Process regular images
   const imageContents = await Promise.all(
     imageFiles.map(async (file) => {
       const base64 = await compressImage(file);
@@ -149,86 +255,221 @@ export async function recognizeMenuFromImages(
         image_url: {
           url: `data:image/jpeg;base64,${base64}`,
           detail: 'auto' as const,
-          // ⚡ key optimization: "auto" 让模型自动选择分辨率
-          //    "high" = 固定最高分辨率 → 最慢（原值）
-          //    "low" = 固定低分辨率 → 最快但可能丢细节
-          //    "auto" = 智能选择 → 平衡速度与精度 ✅
         },
       };
     })
   );
 
-  onProgress?.('AI 正在识别菜单...');
+  // Convert PDF pages to images
+  if (pdfFiles.length > 0) {
+    for (const pdf of pdfFiles) {
+      onProgress?.(`Converting ${pdf.name}...`);
+      try {
+        const pdfImages = await convertPdfToImages(pdf, onProgress);
+        for (const base64 of pdfImages) {
+          imageContents.push({
+            type: 'image_url' as const,
+            image_url: {
+              url: `data:image/jpeg;base64,${base64}`,
+              detail: 'high' as const,
+            },
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to process PDF ${pdf.name}:`, err);
+        throw new Error(`PDF processing failed for ${pdf.name}: ${(err as Error).message}`);
+      }
+    }
+  }
 
-  // 设置请求超时（30秒）
+  if (imageContents.length === 0) {
+    throw new Error('No valid content extracted from uploaded files');
+  }
+
+  onProgress?.('AI recognizing menu...');
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2min for PDF-heavy requests
 
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    // 仅开发环境发送 API Key 到 Vite 代理，生产环境由 Serverless 函数管理
-    if (isDev && API_KEY) {
-      headers['Authorization'] = `Bearer ${API_KEY}`;
+
+    // Dev mode: forward API key for Vite proxy
+    if (isDev) {
+      const settings = loadAISettings();
+      if (settings.recognitionProvider === 'mistral' && settings.mistral.apiKey) {
+        headers['Authorization'] = `Bearer ${settings.mistral.apiKey}`;
+      } else if (settings.recognitionProvider === 'azure' && settings.azure.apiKey) {
+        headers['api-key'] = settings.azure.apiKey;
+      } else if (settings.recognitionProvider === 'openai' && settings.openai.apiKey) {
+        headers['Authorization'] = `Bearer ${settings.openai.apiKey}`;
+      } else {
+        const legacyKey = import.meta.env.VITE_OPENAI_API_KEY || '';
+        if (legacyKey && !legacyKey.startsWith('填写你的')) {
+          headers['Authorization'] = `Bearer ${legacyKey}`;
+        }
+      }
+    }
+
+    // Build request body
+    const bodyObj: Record<string, any> = {
+      model: getRecognitionModel(),
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: [
+            ...imageContents,
+            { type: 'text', text: 'Please extract all menu items from these menu images and return structured JSON.' },
+          ],
+        },
+      ],
+      max_tokens: 16384, // Higher limit for multi-page PDFs / large menus
+      temperature: 0.1,
+    };
+
+    // Add provider info for serverless function routing
+    const settings = loadAISettings();
+    if (!isDev) {
+      bodyObj.provider = settings.recognitionProvider;
+      bodyObj.task = 'recognize';
+      // No apiKey needed — server reads from KV / env vars
+    } else {
+      // Dev mode: route to correct provider via vite proxy
+      bodyObj.provider = settings.recognitionProvider;
     }
 
     const response = await fetch(API_URL, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              ...imageContents,
-              { type: 'text', text: 'Please extract all menu items from these menu images and return structured JSON.' },
-            ],
-          },
-        ],
-        max_tokens: 4096,
-        temperature: 0.1, // 低温度保证输出一致性
-        response_format: { type: 'json_object' }, // ⚡ 强制JSON格式输出，减少token浪费
-      }),
+      body: JSON.stringify(bodyObj),
       signal: controller.signal,
     });
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`OpenAI API 错误 (${response.status}):`, errorBody);
-      throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
+      console.error(`[openai] API error (${response.status}):`, errorBody);
+      try {
+        const errJson = JSON.parse(errorBody);
+        throw new Error(`[${errJson.provider || 'server'}] ${response.status}: ${errJson.detail || errJson.error || response.statusText}`);
+      } catch {
+        throw new Error(`API request failed: ${response.status} — ${errorBody.substring(0, 200)}`);
+      }
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error('API 返回内容为空');
+      throw new Error('API returned empty content');
     }
 
-    onProgress?.('正在解析菜单结构...');
+    onProgress?.('Parsing menu structure...');
 
-    // 解析 JSON 响应
-    const parsed = JSON.parse(content);
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    let cleanedContent = content
+      .replace(/^```(?:json)?\s*\n?/i, '')
+      .replace(/\n?```\s*$/, '')
+      .trim();
+
+    // Try normal parse first
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedContent);
+    } catch (parseErr) {
+      // JSON is likely truncated (OpenAI hit max_tokens). Try to repair.
+      console.warn('[openai] JSON parse failed, attempting repair...', (parseErr as Error).message);
+      const repaired = tryRepairTruncatedJson(cleanedContent);
+      parsed = JSON.parse(repaired);
+    }
 
     if (!parsed.sections || !Array.isArray(parsed.sections)) {
-      throw new Error('API 返回格式不正确，缺少 sections 字段');
+      throw new Error('API response format invalid, missing sections');
     }
 
-    onProgress?.(`识别完成！共 ${parsed.sections.length} 个分类`);
+    onProgress?.(`Done! ${parsed.sections.length} sections found`);
 
     clearTimeout(timeoutId);
     return parsed;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('识别超时（30秒），请检查网络连接后重试');
+      throw new Error('Recognition timed out. The file may be too large or complex. Try with a smaller file.');
     }
-    console.error('菜单识别失败:', error);
+    console.error('Menu recognition failed:', error);
     throw error;
   }
+}
+
+// ---- 翻译 API ----
+export async function translateText(
+  text: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<string> {
+  const settings = loadAISettings();
+  const config = getProviderConfig();
+
+  if (!hasTranslationKey(settings)) {
+    throw new Error('Translation provider not configured. Please set API keys in Settings.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    const bodyObj: Record<string, any> = {
+      task: 'translate',
+      provider: settings.translationProvider,
+      text,
+      sourceLang,
+      targetLang,
+    };
+
+    if (!isDev) {
+      bodyObj.provider = settings.translationProvider;
+      // No apiKey needed — server reads from KV / env vars
+    }
+
+    const response = await fetch(isDev ? '/api/openai/v1/chat/completions' : '/api/menu-recognize', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(bodyObj),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Translation failed: ${response.status} — ${err.substring(0, 200)}`);
+    }
+
+    const data = await response.json();
+    clearTimeout(timeoutId);
+    return data.translation || data.choices?.[0]?.message?.content || text;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+// ---- 模型名称解析 ----
+function getRecognitionModel(): string {
+  const settings = loadAISettings();
+  if (settings.recognitionProvider === 'mistral') {
+    return settings.mistral.recognitionModel || 'pixtral-large-latest';
+  }
+  if (settings.recognitionProvider === 'azure') {
+    return settings.azure.recognitionDeployment || 'gpt-4o';
+  }
+  if (settings.recognitionProvider === 'openai') {
+    return settings.openai.recognitionModel || 'gpt-4o';
+  }
+  // 向后兼容
+  return import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 }
 
 // ---- 将识别结果转换为 Menu 数据结构 ----
@@ -238,7 +479,7 @@ export function convertToMenu(
   restaurantName?: string
 ): Menu {
   const now = new Date().toISOString();
-  const menuTitle = restaurantName || `菜单 (${files.length} 个文件)`;
+  const menuTitle = restaurantName || `Menu (${files.length} file${files.length > 1 ? 's' : ''})`;
 
   return {
     id: Date.now().toString(),
@@ -246,6 +487,7 @@ export function convertToMenu(
     sections: recognized.sections.map((sec, secIdx) => ({
       id: `s-${Date.now()}-${secIdx}`,
       name: sec.name,
+      translations: {}, // AI translations will be populated by TranslationPage
       dishes: sec.dishes.map(
         (d: RecognizedDish, dishIdx: number): Dish => ({
           id: `d-${Date.now()}-${secIdx}-${dishIdx}`,
@@ -256,6 +498,7 @@ export function convertToMenu(
           allergens: [],
           dietaryTags: [],
           isBestSeller: false,
+          translations: {}, // AI translations will be populated by TranslationPage
         })
       ),
       isExpanded: true,
@@ -268,5 +511,6 @@ export function convertToMenu(
 
 // ---- 检查 API Key 是否已配置 ----
 export function isApiKeyConfigured(): boolean {
-  return API_KEY !== '' && !API_KEY.startsWith('填写你的');
+  const config = getProviderConfig();
+  return config.hasAnyKey;
 }

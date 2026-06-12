@@ -106,6 +106,12 @@ interface Translations {
   allergenSulfites: string;
   allergenLupin: string;
   allergenMolluscs: string;
+  /* Dish explanation popup */
+  learningAboutDish: string;
+  dishStory: string;
+  aiInsights: string;
+  tryAgain: string;
+  gotIt: string;
 }
 
 const TRANSLATIONS: Record<string, Translations> = {
@@ -171,6 +177,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfites',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Molluscs',
+    learningAboutDish: 'Learning about this dish...',
+    dishStory: 'Dish Story',
+    aiInsights: 'AI-powered cultural insights',
+    tryAgain: 'Try again',
+    gotIt: 'Got it!',
   },
   zh: {
     switchLanguage: '切换语言',
@@ -234,6 +245,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: '亚硫酸盐',
     allergenLupin: '羽扇豆',
     allergenMolluscs: '软体动物',
+    learningAboutDish: '正在了解这道菜...',
+    dishStory: '菜品故事',
+    aiInsights: 'AI 文化解读',
+    tryAgain: '重试',
+    gotIt: '知道了！',
   },
   es: {
     switchLanguage: 'Cambiar idioma',
@@ -360,6 +376,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfites',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Mollusques',
+    learningAboutDish: 'Découverte du plat...',
+    dishStory: 'Histoire du plat',
+    aiInsights: 'Anecdotes culturelles par IA',
+    tryAgain: 'Réessayer',
+    gotIt: 'Compris !',
   },
   de: {
     switchLanguage: 'Sprache wechseln',
@@ -420,6 +441,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfite',
     allergenLupin: 'Lupinen',
     allergenMolluscs: 'Weichtiere',
+    learningAboutDish: 'Erkunde dieses Gericht...',
+    dishStory: 'Geschichte des Gerichts',
+    aiInsights: 'KI-Kultureinblicke',
+    tryAgain: 'Erneut versuchen',
+    gotIt: 'Verstanden!',
   },
   it: {
     switchLanguage: 'Cambia lingua',
@@ -480,6 +506,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Solfiti',
     allergenLupin: 'Lupini',
     allergenMolluscs: 'Molluschi',
+    learningAboutDish: 'Alla scoperta di questo piatto...',
+    dishStory: 'Storia del piatto',
+    aiInsights: 'Approfondimenti culturali AI',
+    tryAgain: 'Riprova',
+    gotIt: 'Capito!',
   },
   pt: {
     switchLanguage: 'Mudar idioma',
@@ -540,6 +571,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfitos',
     allergenLupin: 'Tremoço',
     allergenMolluscs: 'Moluscos',
+    learningAboutDish: 'Aprendendo sobre este prato...',
+    dishStory: 'História do prato',
+    aiInsights: 'Insights culturais com IA',
+    tryAgain: 'Tentar novamente',
+    gotIt: 'Entendi!',
   },
   nl: {
     switchLanguage: 'Taal wijzigen',
@@ -600,6 +636,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfieten',
     allergenLupin: 'Lupine',
     allergenMolluscs: 'Weekdieren',
+    learningAboutDish: 'Ontdek dit gerecht...',
+    dishStory: 'Gerechtverhaal',
+    aiInsights: 'AI culturele inzichten',
+    tryAgain: 'Opnieuw proberen',
+    gotIt: 'Begrepen!',
   },
   ru: {
     switchLanguage: 'Сменить язык',
@@ -660,6 +701,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Сульфиты',
     allergenLupin: 'Люпин',
     allergenMolluscs: 'Моллюски',
+    learningAboutDish: 'Узнаём о блюде...',
+    dishStory: 'История блюда',
+    aiInsights: 'Культурные заметки от ИИ',
+    tryAgain: 'Повторить',
+    gotIt: 'Понятно!',
   },
   ja: {
     switchLanguage: '言語を変更',
@@ -723,6 +769,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: '亜硫酸塩',
     allergenLupin: 'ルパン',
     allergenMolluscs: '軟体動物',
+    learningAboutDish: 'この料理について学習中...',
+    dishStory: '料理の物語',
+    aiInsights: 'AI 文化解説',
+    tryAgain: '再試行',
+    gotIt: '了解！',
   },
   ko: {
     switchLanguage: '언어 변경',
@@ -786,6 +837,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: '아황산염',
     allergenLupin: '루핀',
     allergenMolluscs: '연체동물',
+    learningAboutDish: '이 요리에 대해 알아보는 중...',
+    dishStory: '요리 이야기',
+    aiInsights: 'AI 문화 인사이트',
+    tryAgain: '다시 시도',
+    gotIt: '알겠습니다!',
   },
   ar: {
     switchLanguage: 'تغيير اللغة',
@@ -846,6 +902,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'الكبريتات',
     allergenLupin: 'الترمس',
     allergenMolluscs: 'الرخويات',
+    learningAboutDish: 'نتعرف على هذا الطبق...',
+    dishStory: 'قصة الطبق',
+    aiInsights: 'رؤى ثقافية بالذكاء الاصطناعي',
+    tryAgain: 'حاول مرة أخرى',
+    gotIt: 'فهمت!',
   },
   tr: {
     switchLanguage: 'Dil değiştir',
@@ -906,6 +967,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sülfitle',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Yumuşakçalar',
+    learningAboutDish: 'Bu yemeği keşfediyoruz...',
+    dishStory: 'Yemek Hikayesi',
+    aiInsights: 'AI kültürel bilgiler',
+    tryAgain: 'Tekrar dene',
+    gotIt: 'Anladım!',
   },
   pl: {
     switchLanguage: 'Zmień język',
@@ -966,6 +1032,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Siarczyny',
     allergenLupin: 'Łubin',
     allergenMolluscs: 'Mięczaki',
+    learningAboutDish: 'Poznajemy to danie...',
+    dishStory: 'Historia dania',
+    aiInsights: 'AI — ciekawostki kulturowe',
+    tryAgain: 'Spróbuj ponownie',
+    gotIt: 'Rozumiem!',
   },
   sv: {
     switchLanguage: 'Ändra språk',
@@ -1026,6 +1097,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfit',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Blötdjur',
+    learningAboutDish: 'Lär oss om denna rätt...',
+    dishStory: 'Rättens historia',
+    aiInsights: 'AI-kulturella insikter',
+    tryAgain: 'Försök igen',
+    gotIt: 'Uppfattat!',
   },
   da: {
     switchLanguage: 'Ændr sprog',
@@ -1086,6 +1162,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfit',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Bløddyr',
+    learningAboutDish: 'Lærer om denne ret...',
+    dishStory: 'Rettens historie',
+    aiInsights: 'AI-kulturelle indsigter',
+    tryAgain: 'Prøv igen',
+    gotIt: 'Forstået!',
   },
   no: {
     switchLanguage: 'Bytt språk',
@@ -1146,6 +1227,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfit',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Bløtdyr',
+    learningAboutDish: 'Lærer om denne retten...',
+    dishStory: 'Rettens historie',
+    aiInsights: 'AI-kulturell innsikt',
+    tryAgain: 'Prøv igjen',
+    gotIt: 'Skjønner!',
   },
   fi: {
     switchLanguage: 'Vaihda kieli',
@@ -1206,6 +1292,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sulfiitti',
     allergenLupin: 'Lupiini',
     allergenMolluscs: 'Nilviäiset',
+    learningAboutDish: 'Tutustutaan tähän ruokaan...',
+    dishStory: 'Ruoan tarina',
+    aiInsights: 'Tekoälyn kulttuurinäkemyksiä',
+    tryAgain: 'Yritä uudelleen',
+    gotIt: 'Selvä!',
   },
   el: {
     switchLanguage: 'Αλλαγή γλώσσας',
@@ -1266,6 +1357,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Θειώδη',
     allergenLupin: 'Λούπινο',
     allergenMolluscs: 'Μαλάκια',
+    learningAboutDish: 'Μαθαίνοντας για αυτό το πιάτο...',
+    dishStory: 'Ιστορία πιάτου',
+    aiInsights: 'Πολιτιστικές πληροφορίες AI',
+    tryAgain: 'Δοκιμάστε ξανά',
+    gotIt: 'Το κατάλαβα!',
   },
   cs: {
     switchLanguage: 'Změnit jazyk',
@@ -1326,6 +1422,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfity: 'Sulfity',
     allergenLupin: 'Vikuł',
     allergenMolluscs: 'Měkkýši',
+    learningAboutDish: 'Poznáváme tento pokrm...',
+    dishStory: 'Příběh pokrmu',
+    aiInsights: 'AI kulturní postřehy',
+    tryAgain: 'Zkusit znovu',
+    gotIt: 'Chápu!',
   },
   ro: {
     switchLanguage: 'Schimbă limba',
@@ -1386,6 +1487,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfite: 'Sulfiți',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Moluste',
+    learningAboutDish: 'Aflăm despre acest preparat...',
+    dishStory: 'Povestea preparatului',
+    aiInsights: 'Informații culturale AI',
+    tryAgain: 'Încearcă din nou',
+    gotIt: 'Am înțeles!',
   },
   hu: {
     switchLanguage: 'Nyelv váltása',
@@ -1446,6 +1552,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Szulfitok',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Puhatestűek',
+    learningAboutDish: 'Ismerjük meg ezt az ételt...',
+    dishStory: 'Az étel története',
+    aiInsights: 'AI kulturális betekintés',
+    tryAgain: 'Próbáld újra',
+    gotIt: 'Értem!',
   },
   th: {
     switchLanguage: 'เปลี่ยนภาษา',
@@ -1506,6 +1617,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'ซัลไฟต์',
     allergenLupin: 'ถัวลูปิน',
     allergenMolluscs: 'หอยสองเปลือก',
+    learningAboutDish: 'กำลังเรียนรู้เกี่ยวกับเมนูนี้...',
+    dishStory: 'เรื่องราวของเมนู',
+    aiInsights: 'ข้อมูลเชิงวัฒนธรรมโดย AI',
+    tryAgain: 'ลองอีกครั้ง',
+    gotIt: 'เข้าใจแล้ว!',
   },
   vi: {
     switchLanguage: 'Đổi ngôn ngữ',
@@ -1566,6 +1682,11 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenSulfites: 'Sunfit',
     allergenLupin: 'Đậu Lupin',
     allergenMolluscs: 'Động vật thân mềm',
+    learningAboutDish: 'Đang tìm hiểu về món này...',
+    dishStory: 'Câu chuyện món ăn',
+    aiInsights: 'Thông tin văn hóa từ AI',
+    tryAgain: 'Thử lại',
+    gotIt: 'Đã hiểu!',
   },
 };
 
@@ -1937,6 +2058,12 @@ const DESC_TRANSLATIONS: Record<string, Record<string, string>> = {
 /* ================================================================
    Context definition
    ================================================================ */
+/** Shape of dish-level AI translations stored on Dish.translations[langCode] */
+interface DishTranslationEntry {
+  name?: string;
+  description?: string;
+}
+
 interface LanguageContextValue {
   uiLang: string;
   restaurantLang: string;
@@ -1944,9 +2071,9 @@ interface LanguageContextValue {
   setRestaurantLang: (code: string) => void;
   t: (key: keyof Translations, ...args: (string | number)[]) => string;
   tTag: (englishTag: string) => string;
-  tSection: (name: string) => { original: string; translated?: string; display: string };
-  tDishName: (name: string) => { original: string; translated?: string; display: string };
-  tDesc: (desc: string) => { original: string; translated?: string; display: string };
+  tSection: (name: string, sectionTranslations?: Record<string, string>) => { original: string; translated?: string; display: string };
+  tDishName: (name: string, dishTranslations?: Record<string, DishTranslationEntry>) => { original: string; translated?: string; display: string };
+  tDesc: (desc: string, dishTranslations?: Record<string, DishTranslationEntry>) => { original: string; translated?: string; display: string };
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -2017,9 +2144,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return `${englishTag} / ${translated}`;
   }, [uiLang, restaurantLang]);
 
-  /* Bilingual section name — returns original + translated when languages differ */
-  const tSection = useCallback((name: string) => {
+  /* Bilingual section name — checks AI translations first, then dictionary fallback */
+  const tSection = useCallback((name: string, sectionTranslations?: Record<string, string>) => {
     const isSameLang = uiLang === restaurantLang;
+    if (!isSameLang && sectionTranslations?.[uiLang]) {
+      return { original: name, translated: sectionTranslations[uiLang], display: `${name} / ${sectionTranslations[uiLang]}` };
+    }
+    // Dictionary fallback
     const dict = SECTION_TRANSLATIONS[uiLang];
     const translated = translateDishText(name, dict);
     return {
@@ -2029,9 +2160,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     };
   }, [uiLang, restaurantLang]);
 
-  /* Bilingual dish name — returns original + translated when languages differ */
-  const tDishName = useCallback((name: string) => {
+  /* Bilingual dish name — checks AI translations first, then dictionary fallback */
+  const tDishName = useCallback((name: string, dishTranslations?: Record<string, DishTranslationEntry>) => {
     const isSameLang = uiLang === restaurantLang;
+    if (!isSameLang && dishTranslations?.[uiLang]?.name) {
+      return { original: name, translated: dishTranslations[uiLang].name!, display: `${name} / ${dishTranslations[uiLang].name!}` };
+    }
+    // Dictionary fallback
     const dict = DISH_TRANSLATIONS[uiLang];
     const translated = translateDishText(name, dict);
     return {
@@ -2041,9 +2176,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     };
   }, [uiLang, restaurantLang]);
 
-  /* Bilingual description — uses dedicated description dictionary */
-  const tDesc = useCallback((desc: string) => {
+  /* Bilingual description — checks AI translations first, then dictionary fallback */
+  const tDesc = useCallback((desc: string, dishTranslations?: Record<string, DishTranslationEntry>) => {
     const isSameLang = uiLang === restaurantLang;
+    if (!isSameLang && dishTranslations?.[uiLang]?.description) {
+      return { original: desc, translated: dishTranslations[uiLang].description!, display: `${desc} / ${dishTranslations[uiLang].description!}` };
+    }
+    // Dictionary fallback
     const dict = DESC_TRANSLATIONS[uiLang];
     const translated = translateDishText(desc, dict);
     return {

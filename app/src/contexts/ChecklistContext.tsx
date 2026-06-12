@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { useAuth } from './AuthContext';
 
 export interface ChecklistStep {
   id: string;
@@ -46,7 +47,13 @@ function saveToStorage(steps: ChecklistStep[]) {
 const ChecklistContext = createContext<ChecklistContextValue | null>(null);
 
 export function ChecklistProvider({ children }: { children: React.ReactNode }) {
-  const [steps, setSteps] = useState<ChecklistStep[]>(() => loadFromStorage() || DEFAULT_STEPS);
+  const { isAuthenticated } = useAuth();
+  
+  const [steps, setSteps] = useState<ChecklistStep[]>(() => {
+    // For new sessions or when not authenticated, always start fresh
+    if (!isAuthenticated) return DEFAULT_STEPS;
+    return loadFromStorage() || DEFAULT_STEPS;
+  });
 
   const completeStep = useCallback((stepId: string) => {
     setSteps((prev) => {

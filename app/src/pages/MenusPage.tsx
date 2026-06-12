@@ -8,6 +8,8 @@ import {
   Copy,
   ArrowUp,
   Trash2,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -142,9 +144,37 @@ export default function MenusPage() {
         </div>
       </div>
 
-      {/* Menu list */}
-      <div className="space-y-3">
-        {menus.map((menu) => (
+      {/* Menu list or empty state */}
+      {menus.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 py-16 px-4">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#5544e4]/10">
+            <FileText className="h-8 w-8 text-[#5544e4]" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">No menus yet</h2>
+          <p className="text-sm text-gray-500 mb-6 text-center max-w-sm">
+            Create your first menu to get started. You can start from scratch or upload an existing menu.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="gap-1.5 bg-[#5544e4] hover:bg-[#4433cc]"
+            >
+              <Plus className="h-4 w-4" />
+              Create menu
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setUploadOpen(true)}
+              className="gap-1.5"
+            >
+              <Sparkles className="h-4 w-4" />
+              Upload & generate
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {menus.map((menu) => (
           <div
             key={menu.id}
             className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
@@ -208,6 +238,7 @@ export default function MenusPage() {
           </div>
         ))}
       </div>
+        )}
 
       {/* Create menu dialog */}
       <CreateMenuDialog
@@ -262,7 +293,7 @@ export default function MenusPage() {
       {/* Menu Preview Drawer */}
       <MenuPreviewDrawer
         menus={menus}
-        restaurantName="xiaochuan"
+        restaurantName="My Restaurant"
         open={previewOpen}
         onOpenChange={setPreviewOpen}
       />

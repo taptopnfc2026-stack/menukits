@@ -13,6 +13,7 @@ import {
   Plug,
   Bell,
   Search,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/sidebar';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { useAdminTheme } from '@/hooks/useAdminTheme';
+import { useAuth } from '@/contexts/AuthContext';
 
 const baseNavItems = [
   {
@@ -136,6 +138,7 @@ function AdminTopBar() {
 
 export default function AdminLayout() {
   const location = useLocation();
+  const { user, logout } = useAuth();
   // Apply the theme on every mount (so visiting the admin URL restores the saved theme)
   useAdminTheme();
 
@@ -235,14 +238,27 @@ export default function AdminLayout() {
             <div className="group-data-[collapsible=icon]:hidden rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center gap-2.5">
                 <div className="admin-bg-accent-soft flex h-8 w-8 items-center justify-center rounded-full">
-                  <span className="admin-text-accent text-xs font-semibold">A</span>
+                  <span className="admin-text-accent text-xs font-semibold">
+                    {(user?.displayName || user?.email?.split('@')[0] || 'A').charAt(0).toUpperCase()}
+                  </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-slate-900">Admin</p>
+                  <p className="truncate text-xs font-semibold text-slate-900">
+                    {user?.displayName || user?.email?.split('@')[0] || 'Admin'}
+                  </p>
                   <p className="truncate text-[10px] text-slate-400">
-                    admin@menukits.eu
+                    {user?.email || 'admin'}
                   </p>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={logout}
+                  title="Sign out"
+                  className="h-7 w-7 text-slate-400 hover:text-red-500"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           </SidebarFooter>

@@ -1,24 +1,67 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, UtensilsCrossed, ArrowLeft } from 'lucide-react';
+import { ChevronRight, UtensilsCrossed, ArrowLeft, Loader2 } from 'lucide-react';
 import type { Menu } from '@/types';
 
-const MENUS_STORAGE_KEY = 'menukits-menus';
 const COVER_IMAGE = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop';
-const RESTAURANT_NAME = 'xiaochuan';
+const RESTAURANT_NAME = 'My Restaurant';
 
-function getStoredMenus(): Menu[] {
-  try {
-    const raw = localStorage.getItem(MENUS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+/** Transform DB row → frontend Menu shape */
+function dbRowToMenu(row: any): Menu {
+  if (row?.data && typeof row.data === 'object') {
+    return {
+      ...row.data,
+      id: row.id,
+      title: row.data.title || row.name || '',
+      isVisible: row.is_public ?? true,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
+  return {
+    id: row.id,
+    title: row.name || 'Untitled',
+    sections: [],
+    isVisible: row.is_public ?? true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export default function MenuHubPage() {
-  const [menus] = useState<Menu[]>(() => getStoredMenus());
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/public-menus');
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows)) {
+            setMenus(rows.map(dbRowToMenu));
+          }
+        }
+      } catch {
+        /* silent fail */
+      }
+      setIsLoading(false);
+    }
+    load();
+  }, []);
+
   const visibleMenus = menus.filter((m) => m.isVisible !== false);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center px-6">
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#5544e4] mb-4" />
+          <p className="text-lg font-medium text-gray-700">Loading menus...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (visibleMenus.length === 0) {
     return (
@@ -54,7 +97,7 @@ export default function MenuHubPage() {
             to="/"
             className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-3.5 w-3" />
             Back
           </Link>
         </div>
@@ -82,7 +125,7 @@ export default function MenuHubPage() {
         {/* Powered by footer */}
         <div className="border-t border-gray-100 bg-white px-5 py-3 text-center">
           <p className="text-[11px] text-gray-400">
-            Powered by <span className="font-semibold text-[#5544e4]">chefymenu.com</span>
+            Powered by <span className="font-semibold text-[#5544e4]">MenuKits</span>
           </p>
         </div>
       </div>

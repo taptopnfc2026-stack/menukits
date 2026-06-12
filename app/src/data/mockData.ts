@@ -2,12 +2,12 @@ import type { Menu } from '@/types';
 
 /* Sample restaurant info for the first (preview) menu */
 const sampleRestaurantInfo = {
-  name: 'xiaochuan',
+  name: 'My Restaurant',
   description: '',
   coverImage: '',
   address: 'Calle Luz, Madrid',
   phone: '+34605313131',
-  email: 'hello@iamenu.ai',
+  email: 'hello@menukits.ai',
   currency: 'EUR (€)',
   hours: [
     { day: 'Domingo', open: '09:00', close: '23:00' },
@@ -19,7 +19,7 @@ const sampleRestaurantInfo = {
     tiktok: '@menukits',
     twitterX: 'menukits',
     youtube: '@menukits',
-    website: 'https://iamenu.ai',
+    website: 'https://menukits.ai',
   } as import('@/types').SocialLinks,
   onlineLinks: [],
   languages: ['en'],

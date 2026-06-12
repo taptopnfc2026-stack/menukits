@@ -427,7 +427,7 @@ export default function EditorPage() {
       {/* Menu Preview Drawer */}
       <MenuPreviewDrawer
         menus={[menu]}
-        restaurantName="xiaochuan"
+        restaurantName="My Restaurant"
         initialMenuId={menu.id}
         open={previewOpen}
         onOpenChange={setPreviewOpen}

@@ -9,6 +9,8 @@ export interface Dish {
   allergens: string[];
   dietaryTags: string[];
   isVisible: boolean;
+  /** AI-generated translations keyed by language code (e.g. { zh: '烤三文鱼', fr: 'Saumon Grillé' }) */
+  translations?: Record<string, { name?: string; description?: string }>;
 }
 
 export interface Section {
@@ -16,6 +18,8 @@ export interface Section {
   name: string;
   dishes: Dish[];
   isExpanded: boolean;
+  /** AI-generated section name translation keyed by language code */
+  translations?: Record<string, string>;
 }
 
 export interface Menu {

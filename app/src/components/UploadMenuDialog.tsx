@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   X,
   ArrowLeft,
@@ -19,7 +20,7 @@ import {
 import type { Menu } from '@/types';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf', 'image/webp', 'image/bmp', 'image/tiff'];
-const MAX_SIZE_MB = 5;
+const MAX_SIZE_MB = 15;
 const IMAGE_REGEX = /^image\//;
 
 type Phase = 'upload' | 'generating' | 'success' | 'error';
@@ -338,7 +339,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
           <>
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-600">i</span>
             <p className="text-sm leading-relaxed text-blue-700">
-              Moonshot API is configured. Using <span className="font-semibold">AI recognition</span> for menu parsing.
+              AI provider configured. Using <span className="font-semibold">AI recognition</span> for menu parsing.
             </p>
           </>
         ) : (
@@ -346,7 +347,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-bold text-amber-600">!</span>
             <p className="text-sm leading-relaxed text-amber-700">
               API Key not configured, using <span className="font-semibold">demo data</span>.
-              Set <code className="rounded bg-amber-100 px-1 text-xs">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-amber-100 px-1 text-xs">.env</code>
+              Contact your administrator to configure AI providers.
             </p>
           </>
         )}

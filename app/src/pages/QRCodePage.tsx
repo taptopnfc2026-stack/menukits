@@ -1,13 +1,19 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink } from 'lucide-react';
+import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
+import { useAuth } from '@/contexts/AuthContext';
 
-// 生成菜单预览链接（BrowserRouter 直接使用路径）
+// Generate restaurant slug URL (custom URL for each business)
+function getRestaurantSlugUrl(): string {
+  return `${window.location.origin}/hub`;
+}
+
+// Generate menu preview link
 function getMenuPreviewUrl(menuId: string): string {
   return `${window.location.origin}/r/${menuId}`;
 }
@@ -22,19 +28,72 @@ const SIZE_OPTIONS = [
 export default function QRCodePage() {
   const { completeStep = () => {} } = useChecklist();
   completeStep('qr-code');
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [selectedMenuIndex, setSelectedMenuIndex] = useState<number | null>(null);
   const [isHubSelected, setIsHubSelected] = useState(true);
   const [showSizePicker, setShowSizePicker] = useState(false);
+  const [restaurantSlug, setRestaurantSlug] = useState<string>('');
   const pickerRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<SVGSVGElement>(null);
-  const { menus } = useMenuContext();
+  const { menus, saveToCloud } = useMenuContext();
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  // Force cloud sync on mount — ensures all local menus are saved to DB
+  // and timestamp IDs are replaced with server UUIDs
+  useEffect(() => {
+    let cancelled = false;
+    async function sync() {
+      try {
+        await saveToCloud();
+      } catch {
+        /* non-fatal */
+      }
+      if (!cancelled) setIsSyncing(false);
+    }
+    sync();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Default to first menu if available (not generic hub)
+  useEffect(() => {
+    if (!isSyncing && menus.length > 0 && selectedMenuIndex === null && isHubSelected) {
+      setSelectedMenuIndex(0);
+      setIsHubSelected(false);
+    }
+  }, [menus, isSyncing]);
+
+  // Load restaurant slug on mount
+  useEffect(() => {
+    async function loadSlug() {
+      try {
+        const res = await fetch('/api/restaurants');
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
+            setRestaurantSlug(rows[0].slug);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    loadSlug();
+  }, []);
 
   const selectedMenu = selectedMenuIndex !== null ? menus[selectedMenuIndex] : null;
   const menuUrl = useMemo(() => selectedMenu ? getMenuPreviewUrl(selectedMenu.id) : '', [selectedMenu]);
-  const hubUrl = useMemo(() => `${window.location.origin}/hub`, []);
+  // Custom URL: /hub/la-petite-cafe (or fallback to /hub)
+  const hubUrl = useMemo(
+    () => restaurantSlug
+      ? `${window.location.origin}/hub/${restaurantSlug}`
+      : getRestaurantSlugUrl(),
+    [restaurantSlug]
+  );
   const activeUrl = isHubSelected ? hubUrl : menuUrl;
-  const activeTitle = isHubSelected ? 'Menu Hub' : (selectedMenu?.title || '');
+  const activeTitle = isHubSelected
+    ? (restaurantSlug ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Menu Hub')
+    : (selectedMenu?.title || '');
 
   // 点击外部关闭尺寸选择器
   useEffect(() => {
@@ -110,6 +169,14 @@ export default function QRCodePage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <h1 className="mb-8 text-xl font-semibold text-gray-900">QR Code</h1>
+
+      {isSyncing ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white p-12 shadow-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-[#5544e4] mb-4" />
+          <p className="text-sm font-medium text-gray-700">Syncing menus to cloud...</p>
+          <p className="mt-1 text-xs text-gray-400">Ensuring your QR codes link to the correct menu</p>
+        </div>
+      ) : (
 
       {/* Row 1: Select menu | Scan + Download — side by side */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
@@ -285,6 +352,7 @@ export default function QRCodePage() {
           Upgrade to Premium
         </Button>
       </div>
+      )}
     </div>
   );
 }

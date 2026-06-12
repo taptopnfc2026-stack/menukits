@@ -1,0 +1,56 @@
+/* ===========================================================
+ * Admin Panel — Theme tokens & global styles
+ * Variables are applied at runtime by admin-theme.ts
+ * =========================================================== */
+
+:root {
+  --admin-accent: #6366F1;
+  --admin-accent-fg: #FFFFFF;
+  --admin-accent-soft: rgba(99, 102, 241, 0.15);
+  --admin-accent-ring: rgba(99, 102, 241, 0.40);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Accent utilities (use CSS variables, not raw colors) ---------- */
+.admin-bg-accent { background-color: var(--admin-accent); color: var(--admin-accent-fg); }
+.admin-bg-accent-soft { background-color: var(--admin-accent-soft); }
+.admin-text-accent { color: var(--admin-accent); }
+.admin-border-accent { border-color: var(--admin-accent); }
+.admin-ring-accent { box-shadow: 0 0 0 3px var(--admin-accent-ring); }
+.admin-hover-accent:hover { background-color: var(--admin-accent); color: var(--admin-accent-fg); }
+
+/* Active nav link state */
+.admin-nav-active {
+  background-color: var(--admin-accent-soft) !important;
+  color: var(--admin-accent) !important;
+}
+
+/* Smooth transition for theme switching */
+.admin-themed {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+/* Custom scrollbar for the dark admin theme */
+.admin-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+}
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}

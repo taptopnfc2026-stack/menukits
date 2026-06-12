@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ------------------------------------------------------------------ */
 /*  Navbar                                                            */
@@ -55,12 +57,12 @@ function Navbar() {
 
         {/* Right actions */}
         <div className="flex items-center gap-3 shrink-0">
-          <Link to="/app">
+          <Link to="/login">
             <Button variant="ghost" size="sm" className="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-[#5544e4]">
               Log in
             </Button>
           </Link>
-          <Link to="/app">
+          <Link to="/login">
             <Button
               size="sm"
               className="bg-[#5544e4] text-white hover:bg-[#4433cc] text-sm font-semibold px-5"
@@ -92,7 +94,7 @@ function Navbar() {
             </a>
           ))}
           <div className="pt-2 border-t border-gray-100">
-            <Link to="/app" className="text-sm font-medium text-gray-600 block py-2">Log in</Link>
+            <Link to="/login" className="text-sm font-medium text-gray-600 block py-2">Log in</Link>
           </div>
         </div>
       )}
@@ -130,7 +132,7 @@ function HeroSection() {
 
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <Link to="/app">
+          <Link to="/login">
             <Button
               size="lg"
               className="bg-[#5544e4] hover:bg-[#4433cc] text-white font-semibold px-8 py-6 text-lg rounded-xl shadow-lg shadow-[#5544e4]/25 transition-all hover:shadow-xl hover:shadow-[#5544e4]/30 hover:-translate-y-0.5"
@@ -339,7 +341,7 @@ function SplitFeatureRight() {
               Impress your guests with a modern, interactive menu experience. High-quality images,
               clear descriptions, and instant availability updates keep everyone informed.
             </p>
-            <Link to="/app">
+            <Link to="/login">
               <Button className="bg-[#5544e4] hover:bg-[#4433cc] text-white font-semibold px-6">
                 Try it free
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -368,8 +370,8 @@ function PhotoFeature() {
               Generate stunning, appetizing food images using AI. No expensive photo shoots needed.
               Just describe your dish and get professional-quality photos in seconds.
             </p>
-            <Link to="/app">
-              <Button className="bg-[#5544e4] hover:bg-[#4433cc] text-white font-semibold px-6">
+            <Link to="/login" className="block">
+              <Button variant="outline" className="w-full border-gray-300 font-semibold hover:bg-gray-50">
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -481,7 +483,7 @@ function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link to="/app" className="block">
+            <Link to="/login" className="block">
               <Button variant="outline" className="w-full border-gray-300 font-semibold hover:bg-gray-50">
                 Get started
               </Button>
@@ -520,8 +522,8 @@ function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link to="/app" className="block">
-              <Button className="w-full bg-white text-[#5544e4] font-bold hover:bg-gray-100">
+            <Link to="/login" className="block">
+              <Button variant="outline" className="w-full border-gray-300 font-semibold hover:bg-gray-50">
                 Start free trial
               </Button>
             </Link>
@@ -552,7 +554,7 @@ function PricingSection() {
                 </li>
               ))}
             </ul>
-            <Link to="/app" className="block">
+            <Link to="/login" className="block">
               <Button variant="outline" className="w-full border-gray-300 font-semibold hover:bg-gray-50">
                 Contact sales
               </Button>
@@ -743,6 +745,10 @@ function Footer() {
 /*  Main Landing Page                                                 */
 /* ------------------------------------------------------------------ */
 export default function LandingPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
   return (
     <div className="min-h-screen bg-white">
       <Navbar />

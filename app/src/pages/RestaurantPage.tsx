@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Store,
   ImagePlus,
@@ -20,6 +20,9 @@ import {
   CalendarDays,
   Leaf,
   Star,
+  Link2,
+  ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,15 +55,46 @@ export default function RestaurantPage() {
   const existingInfo = menus[0]?.restaurantInfo;
 
   // Restaurant details state — initialize from saved data
-  const [restaurantName, setRestaurantName] = useState(existingInfo?.name ?? 'xiaochuan');
+  const [restaurantName, setRestaurantName] = useState(existingInfo?.name ?? 'My Restaurant');
   const [address, setAddress] = useState(existingInfo?.address ?? '');
   const [phone, setPhone] = useState(existingInfo?.phone ?? '');
   const [currency, setCurrency] = useState(existingInfo?.currency ?? '');
+
+  // Slug state (for custom URL)
+  const [slug, setSlug] = useState('');
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [slugSaved, setSlugSaved] = useState(false);
+  const [slugError, setSlugError] = useState('');
+
+  // Load restaurant slug from cloud
+  useEffect(() => {
+    async function loadRestaurant() {
+      try {
+        const res = await fetch('/api/restaurants');
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
+            setSlug(rows[0].slug);
+          } else if (restaurantName && restaurantName !== 'My Restaurant') {
+            // Auto-generate from name
+            setSlug(restaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    loadRestaurant();
+  }, []);
 
   // Cover image state
   const [selectedImageIndex, setSelectedImageIndex] = useState(
     existingInfo?.coverImage ? (COVER_IMAGES.indexOf(existingInfo.coverImage) >= 0 ? COVER_IMAGES.indexOf(existingInfo.coverImage) : 1) : 1
   );
+
+  // Custom uploaded cover image (base64 data URL)
+  const [customCoverImage, setCustomCoverImage] = useState<string | null>(
+    existingInfo?.coverImage && !COVER_IMAGES.includes(existingInfo.coverImage) ? existingInfo.coverImage : null
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Online links state
   const [instagram, setInstagram] = useState(existingInfo?.socialLinks?.instagram ?? '');
@@ -127,12 +161,92 @@ export default function RestaurantPage() {
     showSaved('Restaurant details');
   };
 
+  // Save slug to cloud (restaurants table)
+  const handleSaveSlug = async () => {
+    if (!slug.trim()) { setSlugError('URL slug is required'); return; }
+    // Validate format
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$|^[a-z0-9]{1,}$/i.test(slug.trim())) {
+      setSlugError('Only letters, numbers, and hyphens allowed');
+      return;
+    }
+    
+    setSlugSaving(true);
+    setSlugError('');
+    try {
+      const sessionRes = await fetch('/api/auth/session');
+      if (!sessionRes.ok) throw new Error('Not authenticated');
+      const { token } = await sessionRes.json();
+      
+      const res = await fetch('/api/restaurants', {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: restaurantName, slug: slug.trim().toLowerCase() }),
+      });
+      if (res.ok) {
+        setSlugSaved(true);
+        setTimeout(() => setSlugSaved(false), 2500);
+        showSaved('Menu URL');
+      } else {
+        const err = await res.json();
+        setSlugError(err.error || 'Failed to update URL');
+      }
+    } catch (e) {
+      setSlugError('Network error. Please try again.');
+    }
+    setSlugSaving(false);
+  };
+
+  /** Auto-generate slug from name */
+  const generateSlugFromName = () => {
+    if (!restaurantName.trim()) return;
+    const generated = restaurantName.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    setSlug(generated);
+    setSlugError('');
+  };
+
+  const handleCustomImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPG, WEBP, etc.)');
+      return;
+    }
+
+    // Validate size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image is too large. Maximum size is 10MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setCustomCoverImage(dataUrl);
+      setSelectedImageIndex(-1); // Deselect default images
+    };
+    reader.onerror = () => {
+      alert('Failed to read image. Please try another file.');
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be re-selected
+    e.target.value = '';
+  }, []);
+
   const handleSaveCoverImage = () => {
+    const coverSrc = customCoverImage || COVER_IMAGES[selectedImageIndex];
     updateMenu(menuId, (menu) => ({
       ...menu,
       restaurantInfo: {
         ...(menu.restaurantInfo || {}),
-        coverImage: COVER_IMAGES[selectedImageIndex],
+        coverImage: coverSrc,
         name: menu.restaurantInfo?.name || restaurantName,
         onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
         languages: menu.restaurantInfo?.languages ?? [],
@@ -362,6 +476,78 @@ export default function RestaurantPage() {
                 </Select>
               </div>
 
+              {/* Custom URL Slug */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
+                    Menu URL
+                  </Label>
+                  {slug && (
+                    <a
+                      href={`/hub/${slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs font-medium text-[#5544e4] hover:text-[#4433cc] transition-colors"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Preview
+                    </a>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400 select-none whitespace-nowrap overflow-hidden max-[340px]:hidden sm:inline-flex">
+                    menukits.eu/hub/
+                  </span>
+                  <Input
+                    id="slug"
+                    value={slug}
+                    onChange={(e) => {
+                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+                      setSlugError('');
+                      setSlugSaved(false);
+                    }}
+                    placeholder="la-petite-cafe"
+                    className={`h-11 pl-[115px] sm:pl-[130px] ${slugError ? 'border-red-300 focus:border-red-500' : ''}`}
+                  />
+                </div>
+                
+                {/* URL preview + actions */}
+                {slug && !slugError && (
+                  <p className="text-xs text-gray-500 mt-1 break-all">
+                    <span className="font-medium text-gray-700">{window?.location ? window.location.origin : 'menukits.eu'}</span>/hub/<span className="font-mono text-[#5544e4] font-semibold">{slug}</span>
+                  </p>
+                )}
+
+                {slugError && (
+                  <p className="flex items-center gap-1 text-xs text-red-600 mt-1">
+                    <AlertCircle className="h-3 w-3" />{slugError}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateSlugFromName}
+                    className="text-xs h-8"
+                    disabled={!restaurantName.trim()}
+                  >
+                    Auto-generate
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={slugSaved ? "outline" : "default"}
+                    size="sm"
+                    onClick={handleSaveSlug}
+                    disabled={slugSaving || !slug.trim()}
+                    className={`text-xs h-8 flex-1 ${slugSaved ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-50' : 'bg-[#5544e4] hover:bg-[#4433cc] text-white'}`}
+                  >
+                    {slugSaving ? 'Saving...' : (slugSaved ? 'URL saved!' : 'Save URL')}
+                  </Button>
+                </div>
+              </div>
+
               {/* Save */}
               <Button onClick={handleSaveDetails} className="w-full bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base">
                 Save
@@ -386,7 +572,7 @@ export default function RestaurantPage() {
                 {/* Cover Image */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden">
                   <img
-                    src={COVER_IMAGES[selectedImageIndex]}
+                    src={customCoverImage || COVER_IMAGES[selectedImageIndex]}
                     alt="Cover preview"
                     className="h-full w-full object-cover"
                   />
@@ -400,15 +586,41 @@ export default function RestaurantPage() {
 
             {/* Image picker */}
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <button className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-gray-300 hover:bg-gray-50">
-                <Plus className="h-6 w-6" />
-              </button>
+              {/* Hidden file input for custom image upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/bmp"
+                className="hidden"
+                onChange={handleCustomImageUpload}
+              />
+              {/* Upload button / Custom image preview */}
+              {customCoverImage ? (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ring-2 ring-[#5544e4]/20 border-[#5544e4] relative group`}
+                  title="Change image"
+                >
+                  <img src={customCoverImage} alt="Uploaded" className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-white text-xs font-medium">Change</span>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  title="Upload your own image"
+                >
+                  <Plus className="h-6 w-6" />
+                </button>
+              )}
               {COVER_IMAGES.map((img, i) => (
                 <button
                   key={i}
-                  onClick={() => setSelectedImageIndex(i)}
+                  onClick={() => { setSelectedImageIndex(i); setCustomCoverImage(null); }}
                   className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                    selectedImageIndex === i
+                    !customCoverImage && selectedImageIndex === i
                       ? 'border-[#5544e4] ring-2 ring-[#5544e4]/20'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
