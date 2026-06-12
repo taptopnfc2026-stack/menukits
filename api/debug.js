@@ -3,6 +3,8 @@
  * If this returns 500/FUNCTION_INVOCATION_FAILED,
  * the issue is in Vercel infrastructure, not our code.
  */
+export const config = { runtime: 'nodejs' };
+
 export default async function handler(req) {
   return new Response(JSON.stringify({
     ok: true,

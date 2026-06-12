@@ -9,6 +9,8 @@
 
 import { supabaseQuery } from './_supabase.js';
 
+export const config = { runtime: 'nodejs' };
+
 function json(status, data) {
   return new Response(JSON.stringify(data), {
     status,
