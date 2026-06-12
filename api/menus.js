@@ -39,7 +39,7 @@ async function getUser(req) {
 // ─── Route dispatcher ─────────────────────────────
 export default async function handler(req) {
   try {
-    const url = new URL(req.url);
+    const url = new URL(req.url || '/', 'http://localhost');
     const path = url.pathname.replace(/^\/api\/menus\/?/, '');
     const method = req.method;
 

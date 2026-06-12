@@ -23,7 +23,7 @@ export default async function handler(req) {
   try {
     if (req.method !== 'GET') return json(405, { error: 'Method not allowed' });
 
-    const url = new URL(req.url);
+    const url = new URL(req.url || '/', 'http://localhost');
     const slug = url.searchParams.get('slug');
     const ids = url.searchParams.get('ids');
 

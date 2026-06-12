@@ -21,7 +21,7 @@ export default async function handler(req) {
   try {
     if (req.method !== 'GET') return json(405, { error: 'Method not allowed' });
 
-    const url = new URL(req.url);
+    const url = new URL(req.url || '/', 'http://localhost');
     const slug = url.searchParams.get('slug');
 
     if (!slug) return json(400, { error: 'Missing slug parameter' });
