@@ -9,12 +9,7 @@ import { useMenuContext } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSession } from '@/lib/supabase';
 
-// Generate restaurant slug URL (custom URL for each business)
-function getRestaurantSlugUrl(): string {
-  return `${window.location.origin}/hub`;
-}
-
-// Generate menu preview link
+// Generate menu preview link (restaurant-specific)
 function getMenuPreviewUrl(menuId: string): string {
   return `${window.location.origin}/r/${menuId}`;
 }
@@ -31,8 +26,7 @@ export default function QRCodePage() {
   completeStep('qr-code');
   const { user, token: authToken } = useAuth();
   const [copied, setCopied] = useState(false);
-  const [selectedMenuIndex, setSelectedMenuIndex] = useState<number | null>(null);
-  const [isHubSelected, setIsHubSelected] = useState(true);
+  const [selectedMenuIndex, setSelectedMenuIndex] = useState<number>(0);
   const [showSizePicker, setShowSizePicker] = useState(false);
   const [restaurantSlug, setRestaurantSlug] = useState<string>('');
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -83,11 +77,10 @@ export default function QRCodePage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Default to first menu if available (not generic hub)
+  // Default to first menu on load (no more generic /hub)
   useEffect(() => {
-    if (!isSyncing && menus.length > 0 && selectedMenuIndex === null && isHubSelected) {
+    if (!isSyncing && menus.length > 0 && selectedMenuIndex === null) {
       setSelectedMenuIndex(0);
-      setIsHubSelected(false);
     }
   }, [menus, isSyncing]);
 
@@ -166,21 +159,9 @@ export default function QRCodePage() {
     loadOrCreateSlug();
   }, [authToken]);
 
-  const selectedMenu = selectedMenuIndex !== null ? menus[selectedMenuIndex] : null;
-  const menuUrl = useMemo(() => selectedMenu ? getMenuPreviewUrl(selectedMenu.id) : '', [selectedMenu]);
-  // Custom URL: /hub/la-petite-cafe (or fallback to /hub)
-  const hubUrl = useMemo(
-    () => restaurantSlug
-      ? `${window.location.origin}/hub/${restaurantSlug}`
-      : getRestaurantSlugUrl(),
-    [restaurantSlug]
-  );
-  const activeUrl = isHubSelected ? hubUrl : menuUrl;
-  const activeTitle = isHubSelected
-    ? (restaurantSlug
-        ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-        : 'Menu Hub')
-    : (selectedMenu?.title || '');
+  const selectedMenu = menus[selectedMenuIndex] || null;
+  const activeUrl = useMemo(() => selectedMenu ? getMenuPreviewUrl(selectedMenu.id) : '', [selectedMenu]);
+  const activeTitle = selectedMenu?.title || '';
 
   // 点击外部关闭尺寸选择器
   useEffect(() => {
@@ -196,12 +177,6 @@ export default function QRCodePage() {
 
   const handleSelectMenu = (idx: number) => {
     setSelectedMenuIndex(idx);
-    setIsHubSelected(false);
-  };
-
-  const handleSelectHub = () => {
-    setIsHubSelected(true);
-    setSelectedMenuIndex(null);
   };
 
   // 点击外部关闭下拉
@@ -271,9 +246,9 @@ export default function QRCodePage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900">Select a menu</h2>
-            {menus.length > 0 && (
+            {menus.length > 0 && restaurantSlug && (
               <button
-                onClick={() => window.open(restaurantSlug ? `/hub/${restaurantSlug}` : '/hub', '_blank')}
+                onClick={() => window.open(`/hub/${restaurantSlug}`, '_blank')}
                 className="flex items-center gap-1 text-xs font-medium text-[#5544e4] hover:text-[#4433cc] transition-colors"
               >
                 <ExternalLink className="h-3 w-3" />
@@ -285,43 +260,19 @@ export default function QRCodePage() {
             <p className="text-sm text-gray-400">No menus available. Create or upload a menu first.</p>
           ) : (
             <div className="space-y-2">
-              {/* Menu Hub / Restaurant button */}
-              <button
-                onClick={handleSelectHub}
-                className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
-                  isHubSelected
-                    ? 'border-[#5544e4]/30 bg-[#5544e4]/5'
-                    : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-medium truncate ${isHubSelected ? 'text-[#5544e4]' : 'text-gray-700'}`}>
-                    {restaurantSlug
-                      ? restaurantSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-                      : 'Menu Hub'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {isHubSelected && activeUrl
-                      ? new URL(activeUrl).pathname
-                      : `All menus · ${restaurantSlug ? '/hub/' + restaurantSlug : 'Preview hub'}`}
-                  </p>
-                </div>
-                {isHubSelected && <QrCode className="ml-3 h-4 w-4 shrink-0 text-[#5544e4]" />}
-              </button>
-
               {/* Individual menu buttons */}
               {menus.map((menu, idx) => (
                 <button
                   key={menu.id}
                   onClick={() => handleSelectMenu(idx)}
                   className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
-                    !isHubSelected && selectedMenuIndex === idx
+                    selectedMenuIndex === idx
                       ? 'border-[#5544e4]/30 bg-[#5544e4]/5'
                       : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-medium truncate ${!isHubSelected && selectedMenuIndex === idx ? 'text-[#5544e4]' : 'text-gray-700'}`}>
+                    <p className={`text-sm font-medium truncate ${selectedMenuIndex === idx ? 'text-[#5544e4]' : 'text-gray-700'}`}>
                       {menu.title}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400">
@@ -329,7 +280,7 @@ export default function QRCodePage() {
                       {menu.sections.reduce((sum, s) => sum + s.dishes.length, 0)} dishes
                     </p>
                   </div>
-                  {!isHubSelected && selectedMenuIndex === idx && <QrCode className="ml-3 h-4 w-4 shrink-0 text-[#5544e4]" />}
+                  {selectedMenuIndex === idx && <QrCode className="ml-3 h-4 w-4 shrink-0 text-[#5544e4]" />}
                 </button>
               ))}
             </div>
@@ -368,7 +319,7 @@ export default function QRCodePage() {
 
           {/* URL */}
           <p className="mb-3 text-sm text-center text-gray-600">
-            Scan the QR code to see {isHubSelected ? 'your menu hub' : 'the menu'} or click on the following link:
+            Scan the QR code to see the menu or click on the following link:
           </p>
           <div className="relative w-full max-w-sm mb-6">
             <Input
