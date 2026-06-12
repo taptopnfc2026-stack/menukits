@@ -177,7 +177,7 @@ export default function QRCodePage() {
           <p className="mt-1 text-xs text-gray-400">Ensuring your QR codes link to the correct menu</p>
         </div>
       ) : (
-
+      <>
       {/* Row 1: Select menu | Scan + Download — side by side */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
         {/* Left: Menu selector */}
@@ -352,6 +352,7 @@ export default function QRCodePage() {
           Upgrade to Premium
         </Button>
       </div>
+      </>
       )}
     </div>
   );
