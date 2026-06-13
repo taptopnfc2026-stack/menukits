@@ -33,6 +33,7 @@ import type { Dish, Menu } from '@/types';
 import { CartProvider, useCart } from '@/contexts/CartContext';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { dbRowToMenu } from '@/lib/menu-row';
 import { useDishExplain } from '@/services/dish-explain';
 
 /* Dietary tag icon config — icons stay same, text gets translated via tTag */
@@ -91,25 +92,7 @@ async function fetchPublicMenu(idOrSlug: string): Promise<Menu | undefined> {
       const rows = await res.json();
       if (Array.isArray(rows) && rows.length > 0) {
         const row = rows[0];
-        // Extract full menu from data column
-        if (row.data && typeof row.data === 'object') {
-          return {
-            ...row.data,
-            id: row.id,
-            title: row.data.title || row.name || '',
-            isVisible: row.is_public ?? true,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-          };
-        }
-        return {
-          id: row.id,
-          title: row.name || 'Untitled',
-          sections: [],
-          isVisible: row.is_public ?? true,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        };
+        return dbRowToMenu(row);
       }
     }
 
@@ -119,16 +102,7 @@ async function fetchPublicMenu(idOrSlug: string): Promise<Menu | undefined> {
     }));
     if (slugRes.ok) {
       const row = await slugRes.json();
-      if (row?.data && typeof row.data === 'object') {
-        return {
-          ...row.data,
-          id: row.id,
-          title: row.data.title || row.name || '',
-          isVisible: row.is_public ?? true,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        };
-      }
+      if (row) return dbRowToMenu(row);
     }
   } catch { /* ignore */}
 
@@ -143,6 +117,31 @@ async function fetchPublicMenu(idOrSlug: string): Promise<Menu | undefined> {
   } catch { /* ignore */}
 
   return undefined;
+}
+
+function detectClientDevice(): 'mobile' | 'tablet' | 'desktop' {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/ipad|tablet/.test(ua)) return 'tablet';
+  if (/mobile|iphone|android/.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
+function trackMenuAnalytics(payload: Record<string, unknown>, useBeacon = false) {
+  const body = JSON.stringify(payload);
+  if (useBeacon && typeof navigator.sendBeacon === 'function') {
+    try {
+      const blob = new Blob([body], { type: 'application/json' });
+      if (navigator.sendBeacon('/api/menus?action=analytics', blob)) return;
+    } catch {
+      /* fall back to fetch */
+    }
+  }
+  fetch('/api/menus?action=analytics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: useBeacon,
+  }).catch(() => {});
 }
 
 /* ================================================================
@@ -191,6 +190,67 @@ function MenuPreviewContent() {
   // Get quantity of a specific dish in cart
   const getDishQty = (dishId: string) =>
     items.find((item) => item.dish.id === dishId)?.quantity || 0;
+
+  useEffect(() => {
+    if (!menu?.id) return;
+    const startedAt = Date.now();
+    trackMenuAnalytics({
+      event: 'menu_view',
+      menuId: menu.id,
+      device: detectClientDevice(),
+      path: window.location.pathname,
+    });
+
+    const sendDuration = () => {
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      if (seconds > 1) {
+        trackMenuAnalytics({
+          event: 'session_duration',
+          menuId: menu.id,
+          seconds,
+        }, true);
+      }
+    };
+
+    window.addEventListener('pagehide', sendDuration);
+    return () => {
+      window.removeEventListener('pagehide', sendDuration);
+      sendDuration();
+    };
+  }, [menu?.id]);
+
+  useEffect(() => {
+    if (!menu) return;
+    const firstVisible = menu.sections.find((section) => section.dishes.some((dish) => dish.isVisible));
+    if (firstVisible && !activeSection) {
+      setActiveSection(firstVisible.id);
+    }
+  }, [menu, activeSection]);
+
+  const openDishDetail = (dish: Dish, sectionName?: string) => {
+    setSelectedDish(dish);
+    if (menu?.id) {
+      trackMenuAnalytics({
+        event: 'dish_view',
+        menuId: menu.id,
+        dishId: dish.id,
+        dishName: dish.name,
+        sectionName: sectionName || '',
+      });
+    }
+  };
+
+  const selectSection = (sectionId: string, sectionName: string) => {
+    setActiveSection(sectionId);
+    if (menu?.id) {
+      trackMenuAnalytics({
+        event: 'section_view',
+        menuId: menu.id,
+        sectionId,
+        sectionName,
+      });
+    }
+  };
 
   /* ---------- Filter helpers ---------- */
   const toggleUserAllergen = (a: string) =>
@@ -341,7 +401,7 @@ function MenuPreviewContent() {
               return (
               <button
                 key={section.id}
-                onClick={() => setActiveSection(section.id)}
+                onClick={() => selectSection(section.id, section.name)}
                 className={`relative shrink-0 px-[18px] py-[14px] text-[15px] font-semibold transition-colors whitespace-nowrap ${
                   activeSection === section.id ? 'text-black' : 'text-gray-500 hover:text-gray-700'
                 }`}
@@ -376,7 +436,7 @@ function MenuPreviewContent() {
                         className="flex w-full gap-3.5 rounded-2xl border border-gray-100 bg-white p-[14px] shadow-sm transition-all"
                       >
                         {/* Dish Image - clickable to open detail */}
-                        <button onClick={() => setSelectedDish(dish)} className="shrink-0 block">
+                        <button onClick={() => openDishDetail(dish, section.name)} className="shrink-0 block">
                           {dish.image ? (
                             <div className="h-[100px] w-[100px] overflow-hidden rounded-xl">
                               <img src={dish.image} alt={dish.name} className="h-full w-full object-cover" />
@@ -392,7 +452,7 @@ function MenuPreviewContent() {
                         <div className="min-w-0 flex-1 flex flex-col">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-1 min-w-0">
-                              <button onClick={() => setSelectedDish(dish)} className="text-left min-w-0 flex-1">
+                              <button onClick={() => openDishDetail(dish, section.name)} className="text-left min-w-0 flex-1">
                                 <h3 className="text-[16px] font-bold text-gray-900 leading-snug">{dishName.display}</h3>
                                 {dish.tag && (
                                   <span className="mt-1 inline-block rounded-full bg-black/8 px-2.5 py-1 text-[11px] font-semibold text-black/80">
@@ -711,7 +771,7 @@ function MenuPreviewContent() {
                       <p className="text-[13px] text-gray-500">${item.dish.price.toFixed(2)}</p>
                       <div className="mt-2 flex items-center gap-2">
                         <button
-                          onClick={() => updateQuantity(item.dish.quantity - 1)}
+                          onClick={() => updateQuantity(item.dish.id, item.quantity - 1)}
                           className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-100"
                         ><Minus className="h-3.5 w-3.5" /></button>
                         <span className="min-w-[24px] text-center text-[15px] font-bold text-gray-900">{item.quantity}</span>

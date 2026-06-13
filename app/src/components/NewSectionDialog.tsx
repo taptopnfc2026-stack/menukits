@@ -55,7 +55,7 @@ export function NewSectionDialog({ open, onOpenChange, onSave }: NewSectionDialo
             <Button
               onClick={handleSave}
               disabled={!name.trim()}
-              className="min-w-[130px] bg-[#5544e4] hover:bg-[#4433cc]"
+              className="min-w-[130px] bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]"
             >
               Create section
             </Button>

@@ -49,15 +49,14 @@ export function ChecklistBadge() {
       {/* Expanded panel */}
       {expanded && (
         <div className="w-[340px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200">
-          {/* Header - purple like reference */}
-          <div className="bg-[#5544e4] px-5 py-3.5">
+          <div className="bg-[#151526] px-5 py-3.5">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-white flex items-center gap-1.5">
                 Welcome to menukits <PartyPopper className="h-4 w-4" />
               </h3>
               <button
                 onClick={() => setExpanded(false)}
-                className="rounded-md p-1 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                className="rounded-md p-1 text-white/70 hover:bg-[#FFD400]/15 hover:text-[#FFD400] transition-colors"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>

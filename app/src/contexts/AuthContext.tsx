@@ -190,6 +190,7 @@ export function useAuth(): AuthContextValue {
       login: async () => ({ ok: false as const, error: 'Auth not available' }),
       register: async () => ({ ok: false as const, error: 'Auth not available' }),
       logout: noop,
+      updateProfile: async () => ({ ok: false as const, error: 'Auth not available' }),
     };
   }
   return ctx;

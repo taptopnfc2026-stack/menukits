@@ -39,10 +39,10 @@ export function CreateMenuDialog({
               onUpload();
               onOpenChange(false);
             }}
-            className="group flex items-start gap-4 rounded-xl border-2 border-[#5544e4]/30 bg-[#5544e4]/5 p-4 text-left transition-all hover:border-[#5544e4]/60 hover:bg-[#5544e4]/10"
+            className="group flex items-start gap-4 rounded-xl border-2 border-[#f1d36a] bg-[#fff8d8] p-4 text-left transition-all hover:border-[#F2B900] hover:bg-[#fff3b3]"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm transition-shadow group-hover:shadow">
-              <Upload className="h-5 w-5 text-[#5544e4]" />
+              <Upload className="h-5 w-5 text-[#b98900]" />
             </div>
             <div>
               <p className="font-semibold text-gray-900">Upload my existing menu</p>

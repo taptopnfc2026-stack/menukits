@@ -206,19 +206,20 @@ export default function TranslationPage() {
   const totalItems = useMemo(() => countTotalItems(currentMenu), [currentMenu]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Translations</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            AI-powered multi-language menu translation for your international customers
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#b98900]">Languages</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[#151526]">Translations</h1>
+          <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+            Keep your menu clear for international guests with consistent multi-language content.
           </p>
         </div>
         <Button
           onClick={handleBulkTranslate}
           disabled={isTranslating || !currentMenu || currentMenu.sections.length === 0}
-          className="gap-2 bg-[#5544e4] hover:bg-[#4433cc]"
+          className="gap-2 rounded-xl bg-[#FFD400] font-extrabold text-[#151526] shadow-lg shadow-[#ffd400]/25 hover:bg-[#F2B900]"
         >
           {isTranslating ? (
             <>
@@ -228,7 +229,7 @@ export default function TranslationPage() {
           ) : (
             <>
               <Sparkles className="h-4 w-4" />
-              AI Translate All
+              Smart Translate All
             </>
           )}
         </Button>
@@ -246,15 +247,15 @@ export default function TranslationPage() {
 
       {/* Progress bar */}
       {isTranslating && (
-        <Card className="mb-6 border-[#5544e4]/20 bg-[#5544e4]/5">
+        <Card className="mb-6 border-[#f1d36a] bg-[#fff8d8]">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[#5544e4]">Translating menu...</span>
+              <span className="text-sm font-bold text-[#8a6500]">Translating menu...</span>
               <span className="text-sm text-gray-500">{progress.current} / {progress.total}</span>
             </div>
             <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#5544e4] transition-all duration-300"
+                className="h-full rounded-full bg-[#151526] transition-all duration-300"
                 style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%` }}
               />
             </div>
@@ -263,33 +264,33 @@ export default function TranslationPage() {
       )}
 
       {/* Auto translate toggle */}
-      <Card className="mb-6 border border-gray-100 bg-gradient-to-r from-[#5544e4]/5 to-purple-50/50 shadow-sm">
+      <Card className="mb-6 overflow-hidden border border-[#eee6cf] bg-white shadow-sm">
         <CardContent className="flex items-center justify-between p-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5544e4]/10 shrink-0">
-              <ArrowRightLeft className="h-5 w-5 text-[#5544e4]" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff8d8]">
+              <ArrowRightLeft className="h-5 w-5 text-[#b98900]" />
             </div>
             <div>
-              <p className="font-semibold text-gray-900">Auto-translate new dishes</p>
+              <p className="font-extrabold text-[#151526]">Auto-translate new dishes</p>
               <p className="text-sm text-gray-500 mt-0.5">
-                When you add a new dish, it will be automatically translated to all enabled languages using AI
+                When you add a new dish, it will be translated to all enabled languages automatically.
               </p>
             </div>
           </div>
           <Switch
             checked={autoTranslate}
             onCheckedChange={setAutoTranslate}
-            className="data-[state=checked]:bg-[#5544e4]"
+            className="data-[state=checked]:bg-[#151526]"
           />
         </CardContent>
       </Card>
 
       {/* Stats */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
+        <div className="rounded-xl border border-[#eee6cf] bg-white px-4 py-2">
           <span className="text-sm text-gray-500">{enabledCount} of {languages.length} languages enabled</span>
         </div>
-        <div className={`rounded-lg px-4 py-2 ${translationCount > 0 ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
+        <div className={`rounded-xl border px-4 py-2 ${translationCount > 0 ? 'border-green-200 bg-green-50' : 'border-[#eee6cf] bg-white'}`}>
           <span className={`text-sm ${translationCount > 0 ? 'text-green-700' : 'text-gray-500'}`}>
             {translationCount > 0 ? (
               <>✓ {translationCount} translations completed</>
@@ -299,7 +300,7 @@ export default function TranslationPage() {
           </span>
         </div>
         {currentMenu && (
-          <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
+          <div className="rounded-xl border border-[#eee6cf] bg-white px-4 py-2">
             <span className="text-sm text-gray-500">
               Menu: <strong>{currentMenu.title}</strong> ({currentMenu.sections.length} sections)
             </span>
@@ -308,8 +309,8 @@ export default function TranslationPage() {
       </div>
 
       {/* Language List */}
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-gray-100 px-6 py-3 bg-gray-50/50">
+      <div className="overflow-hidden rounded-[24px] border border-[#eee6cf] bg-white shadow-sm">
+        <div className="border-b border-[#eee6cf] bg-[#fffdf7] px-6 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Available Languages</p>
         </div>
         <div className="divide-y divide-gray-100">
@@ -339,7 +340,7 @@ export default function TranslationPage() {
                   checked={lang.enabled}
                   onCheckedChange={() => toggleLanguage(lang.code)}
                   disabled={isTranslating}
-                  className="data-[state=checked]:bg-[#5544e4]"
+                  className="data-[state=checked]:bg-[#151526]"
                 />
               </div>
             </div>
@@ -367,7 +368,7 @@ export default function TranslationPage() {
                         {Object.entries(dish.translations).slice(0, 3).map(([code, tr]) => {
                           const langFlag = LANGUAGES.find((l) => l.code === code)?.flag || code;
                           return (
-                            <p key={code} className="text-xs text-[#5544e4]">
+                            <p key={code} className="text-xs font-medium text-[#8a6500]">
                               <strong>{langFlag}</strong> {tr.name}{tr.description ? ` / ${tr.description.substring(0, 60)}...` : ''}
                             </p>
                           );
@@ -382,7 +383,7 @@ export default function TranslationPage() {
         ) : (
           <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
             <Globe className="mx-auto h-10 w-10 text-gray-300 mb-3" />
-            <p className="text-sm text-gray-500">Upload a menu first, then click "AI Translate All" to generate translations.</p>
+            <p className="text-sm text-gray-500">Upload a menu first, then click "Smart Translate All" to generate translations.</p>
           </div>
         )}
       </div>

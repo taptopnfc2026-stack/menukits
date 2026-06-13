@@ -35,12 +35,15 @@ import { UploadMenuDialog } from '@/components/UploadMenuDialog';
 import { MenuPreviewDrawer } from '@/components/MenuPreviewDrawer';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { deleteMenuFromCloud, queuePendingMenuDelete } from '@/lib/menu-api';
 import type { Menu } from '@/types';
 
 export default function MenusPage() {
   const navigate = useNavigate();
   const { completeStep } = useChecklist();
   const { menus, setMenus } = useMenuContext();
+  const { token: authToken } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
@@ -92,8 +95,13 @@ export default function MenusPage() {
     setMenus((prev) => [...prev, dup]);
   };
 
-  const handleDelete = (menuId: string) => {
+  const handleDelete = async (menuId: string) => {
     setMenus((prev) => prev.filter((m) => m.id !== menuId));
+    try {
+      await deleteMenuFromCloud(menuId, authToken);
+    } catch {
+      queuePendingMenuDelete(menuId);
+    }
   };
 
   const handleMoveUp = (menuId: string) => {
@@ -236,7 +244,7 @@ export default function MenusPage() {
           <Button
             size="sm"
             onClick={() => setCreateOpen(true)}
-            className="gap-1.5 bg-[#5544e4] hover:bg-[#4433cc]"
+            className="gap-1.5 rounded-xl bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]"
           >
             <Plus className="h-4 w-4" />
             Add menu
@@ -247,8 +255,8 @@ export default function MenusPage() {
       {/* Menu list or empty state */}
       {menus.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 py-16 px-4">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#5544e4]/10">
-            <FileText className="h-8 w-8 text-[#5544e4]" />
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#fff8d8]">
+            <FileText className="h-8 w-8 text-[#b98900]" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900 mb-1">No menus yet</h2>
           <p className="text-sm text-gray-500 mb-6 text-center max-w-sm">
@@ -257,7 +265,7 @@ export default function MenusPage() {
           <div className="flex gap-3">
             <Button
               onClick={() => setCreateOpen(true)}
-              className="gap-1.5 bg-[#5544e4] hover:bg-[#4433cc]"
+              className="gap-1.5 rounded-xl bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]"
             >
               <Plus className="h-4 w-4" />
               Create menu
@@ -300,7 +308,7 @@ export default function MenusPage() {
               <Switch
                 checked={menu.isVisible}
                 onCheckedChange={() => toggleMenuVisibility(menu.id)}
-                className="data-[state=checked]:bg-[#5544e4]"
+                className="data-[state=checked]:bg-[#151526]"
               />
               <span className="text-sm text-gray-600 w-[40px]">{menu.isVisible ? 'Show' : 'Hide'}</span>
               <DropdownMenu>
@@ -343,7 +351,10 @@ export default function MenusPage() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => handleDelete(menu.id)}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void handleDelete(menu.id);
+                    }}
                     className="gap-2 text-red-600 focus:text-red-600"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -397,7 +408,7 @@ export default function MenusPage() {
                 size="sm"
                 onClick={confirmRename}
                 disabled={!renameValue.trim()}
-                className="bg-[#5544e4] hover:bg-[#4433cc]"
+                className="bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]"
               >
                 Save
               </Button>

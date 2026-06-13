@@ -1,11 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef, type ChangeEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { getSession } from '@/lib/supabase';
 import {
   ChevronLeft,
-  GripVertical,
   MoreVertical,
   Star,
   Plus,
@@ -14,15 +13,20 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  Search,
+  Upload,
+  Download,
+  Trash2,
+  Tags,
+  Image as ImageIcon,
+  Eye,
+  ListFilter,
+  FolderPlus,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,7 +81,7 @@ export default function EditorPage() {
 
       if (!isLocalId) {
         // Existing menu — try PUT update
-        res = await fetch(`/api/menus/${menu.id}`, {
+        res = await fetch(`/api/menus?id=${encodeURIComponent(menu.id)}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -149,6 +153,160 @@ export default function EditorPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(menu.title);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [selectedDishIds, setSelectedDishIds] = useState<string[]>([]);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const dishRows = useMemo(() => {
+    return menu.sections.flatMap((section) =>
+      section.dishes.map((dish) => ({
+        sectionId: section.id,
+        sectionName: section.name,
+        dish,
+      }))
+    );
+  }, [menu.sections]);
+
+  const categoryOptions = useMemo(
+    () => menu.sections.map((section) => section.name).filter(Boolean),
+    [menu.sections]
+  );
+
+  const tagOptions = useMemo(() => {
+    const tags = new Set<string>();
+    dishRows.forEach(({ dish }) => {
+      if (dish.tag) tags.add(dish.tag);
+      dish.dietaryTags?.forEach((tag) => tags.add(tag));
+    });
+    return Array.from(tags);
+  }, [dishRows]);
+
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return dishRows.filter(({ sectionName, dish }) => {
+      const matchesQuery =
+        !normalizedQuery ||
+        dish.name.toLowerCase().includes(normalizedQuery) ||
+        dish.description.toLowerCase().includes(normalizedQuery) ||
+        sectionName.toLowerCase().includes(normalizedQuery);
+      const matchesCategory = categoryFilter === 'all' || sectionName === categoryFilter;
+      const matchesTag =
+        tagFilter === 'all' ||
+        dish.tag === tagFilter ||
+        dish.dietaryTags?.includes(tagFilter) ||
+        dish.allergens?.includes(tagFilter);
+      return matchesQuery && matchesCategory && matchesTag;
+    });
+  }, [categoryFilter, dishRows, query, tagFilter]);
+
+  const selectedVisibleCount = filteredRows.filter(({ dish }) => selectedDishIds.includes(dish.id)).length;
+  const allVisibleSelected = filteredRows.length > 0 && selectedVisibleCount === filteredRows.length;
+
+  const updateDishField = <K extends keyof Dish>(
+    sectionId: string,
+    dishId: string,
+    field: K,
+    value: Dish[K]
+  ) => {
+    saveMenu((prev) => ({
+      ...prev,
+      sections: prev.sections.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              dishes: section.dishes.map((dish) =>
+                dish.id === dishId ? { ...dish, [field]: value } : dish
+              ),
+            }
+          : section
+      ),
+    }));
+  };
+
+  const toggleRowSelection = (dishId: string) => {
+    setSelectedDishIds((prev) =>
+      prev.includes(dishId) ? prev.filter((id) => id !== dishId) : [...prev, dishId]
+    );
+  };
+
+  const toggleAllVisible = () => {
+    const visibleIds = filteredRows.map(({ dish }) => dish.id);
+    setSelectedDishIds((prev) => {
+      if (allVisibleSelected) return prev.filter((id) => !visibleIds.includes(id));
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedDishIds.length === 0) return;
+    if (!confirm(`Delete ${selectedDishIds.length} selected dishes?`)) return;
+    saveMenu((prev) => ({
+      ...prev,
+      sections: prev.sections.map((section) => ({
+        ...section,
+        dishes: section.dishes.filter((dish) => !selectedDishIds.includes(dish.id)),
+      })),
+    }));
+    setSelectedDishIds([]);
+  };
+
+  const openSmartAddDish = () => {
+    const firstSection = menu.sections[0];
+    if (firstSection) {
+      openAddDishForSection(firstSection.id);
+      return;
+    }
+
+    const newSectionId = `s${Date.now()}`;
+    const newSection: Section = {
+      id: newSectionId,
+      name: 'Main Menu',
+      dishes: [],
+      isExpanded: true,
+    };
+    saveMenu((prev) => ({ ...prev, sections: [...prev.sections, newSection] }));
+    setActiveSectionId(newSectionId);
+    setEditingDish(null);
+    setAddDishOpen(true);
+  };
+
+  const handleExportMenu = () => {
+    const blob = new Blob([JSON.stringify(menu, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${menu.title.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '') || 'menu'}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportMenuFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const imported = JSON.parse(await file.text()) as Partial<Menu>;
+      if (!Array.isArray(imported.sections)) {
+        throw new Error('Imported file does not include menu sections.');
+      }
+
+      saveMenu((prev) => ({
+        ...prev,
+        title: imported.title || prev.title,
+        sections: imported.sections as Section[],
+        isVisible: imported.isVisible ?? prev.isVisible,
+        updatedAt: new Date().toISOString(),
+      }));
+      setSelectedDishIds([]);
+    } catch (error: any) {
+      alert(error?.message || 'Could not import this menu file.');
+    }
+  };
 
   const toggleSection = (sectionId: string) => {
     saveMenu((prev) => ({
@@ -327,211 +485,383 @@ export default function EditorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      {/* Header - matches reference: back arrow + title with edit + View menu */}
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/app">
-            <Button variant="ghost" size="icon" className="shrink-0">
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          {editingTitle ? (
-            <div className="flex items-center gap-2">
-              <Input
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
-                onBlur={handleSaveTitle}
-                autoFocus
-                className="h-9 w-64 text-lg font-semibold"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-gray-900">{menu.title}</h1>
-              <button
-                onClick={() => {
-                  setTitleValue(menu.title);
-                  setEditingTitle(true);
-                }}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Save button with status feedback */}
-          {saveStatus === 'saved' ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
-              <Check className="h-4 w-4" />
-              Saved
-            </span>
-          ) : saveStatus === 'error' ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700" title={saveError}>
-              <AlertCircle className="h-4 w-4" />
-              Save failed
-            </span>
-          ) : (
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1.5 bg-[#5544e4] hover:bg-[#4a3bd4]"
-              onClick={handleManualSave}
-              disabled={saveStatus === 'saving'}
-            >
-              {saveStatus === 'saving' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px]">
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Link to="/app">
+              <Button variant="ghost" size="icon" className="mt-1 shrink-0 rounded-xl">
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div className="min-w-0">
+              {editingTitle ? (
+                <Input
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
+                  onBlur={handleSaveTitle}
+                  autoFocus
+                  className="h-11 max-w-sm text-xl font-bold"
+                />
               ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Save
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-sm"
-            onClick={() => setPreviewOpen(true)}
-          >
-            View menu
-          </Button>
-        </div>
-      </div>
-
-      {/* Sections & Dishes */}
-      <div className="space-y-4">
-        {menu.sections.map((section) => (
-          <div
-            key={section.id}
-            className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-          >
-            {/* Section header - collapsible */}
-            <Collapsible open={section.isExpanded} onOpenChange={() => toggleSection(section.id)}>
-              <CollapsibleTrigger className="flex w-full items-center justify-between px-5 py-3.5 hover:bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180">
-                    {/* Chevron down/up indicator */}
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </span>
-                  <span className="font-semibold text-gray-900">{section.name}</span>
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-2xl font-extrabold tracking-tight text-slate-950">
+                    All Dishes ({dishRows.length})
+                  </h1>
+                  <button
+                    onClick={() => {
+                      setTitleValue(menu.title);
+                      setEditingTitle(true);
+                    }}
+                    className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    title="Rename menu"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <button className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem
-                      onClick={() => handleRenameSection(section.id)}
-                      className="gap-2"
-                    >
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDuplicateSection(section.id)}
-                      className="gap-2"
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteSection(section.id)}
-                      className="gap-2 text-red-600 focus:text-red-600"
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CollapsibleTrigger>
+              )}
+              <p className="mt-1 text-sm font-medium text-slate-500">
+                Manage dishes from <span className="text-slate-800">{menu.title}</span> in one clean workspace.
+              </p>
+            </div>
+          </div>
 
-              <CollapsibleContent>
-                <div className="divide-y divide-gray-100">
-                  {section.dishes.map((dish) => (
-                    <div
-                      key={dish.id}
-                      className="flex items-start gap-4 px-5 py-3.5 pl-[52px] hover:bg-gray-50/50"
-                    >
-                      <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-gray-300" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900">{dish.name}</span>
-                          {dish.isBestSeller && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">
-                              <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                              Best seller
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-sm text-gray-500">{dish.description}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleImportMenuFile}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 rounded-xl"
+              onClick={() => importInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={handleExportMenu}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 rounded-xl"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye className="h-4 w-4" />
+              View menu
+            </Button>
+            {saveStatus === 'saved' ? (
+              <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-sm font-bold text-emerald-700">
+                <Check className="h-4 w-4" />
+                Saved
+              </span>
+            ) : saveStatus === 'error' ? (
+              <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-red-50 px-3 text-sm font-bold text-red-700" title={saveError}>
+                <AlertCircle className="h-4 w-4" />
+                Save failed
+              </span>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-2 rounded-xl bg-[#FFD400] font-bold text-[#151526] shadow-lg shadow-[#ffd400]/25 hover:bg-[#F2B900]"
+                onClick={handleManualSave}
+                disabled={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className="gap-2 rounded-xl bg-[#FFD400] font-bold text-[#151526] shadow-lg shadow-[#ffd400]/25 hover:bg-[#F2B900]"
+              onClick={openSmartAddDish}
+            >
+              <Plus className="h-4 w-4" />
+              Add Dish
+            </Button>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  className="h-4 w-4 rounded border-slate-300 accent-[#151526]"
+                />
+                Select all
+              </label>
+              <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={() => setNewSectionOpen(true)}>
+                <FolderPlus className="h-4 w-4" />
+                Add category
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-xl border-red-100 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
+                disabled={selectedDishIds.length === 0}
+                onClick={handleBulkDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete {selectedDishIds.length > 0 ? `(${selectedDishIds.length})` : ''}
+              </Button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_180px_180px_auto] xl:w-[760px]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search dishes..."
+                  className="h-10 rounded-xl pl-9"
+                />
+              </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#F2B900] focus:ring-2 focus:ring-[#FFD400]/25"
+              >
+                <option value="all">All Categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              <select
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#F2B900] focus:ring-2 focus:ring-[#FFD400]/25"
+              >
+                <option value="all">All Tags</option>
+                {tagOptions.map((tag) => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+              <Button variant="outline" size="sm" className="h-10 gap-2 rounded-xl">
+                <ListFilter className="h-4 w-4" />
+                View
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1180px] border-collapse text-left">
+              <thead className="border-b border-slate-200 bg-slate-50/80">
+                <tr className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                  <th className="w-12 px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleAllVisible}
+                      className="h-4 w-4 rounded border-slate-300 accent-[#151526]"
+                    />
+                  </th>
+                  <th className="w-24 px-3 py-4">Image</th>
+                  <th className="w-44 px-3 py-4">Name</th>
+                  <th className="w-64 px-3 py-4">Description</th>
+                  <th className="w-28 px-3 py-4">Price</th>
+                  <th className="w-48 px-3 py-4">Tags</th>
+                  <th className="w-52 px-3 py-4">Allergens</th>
+                  <th className="w-56 px-3 py-4">Dietary Tags</th>
+                  <th className="w-36 px-3 py-4">Visible</th>
+                  <th className="w-32 px-4 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredRows.map(({ sectionId, sectionName, dish }) => (
+                  <tr key={`${sectionId}-${dish.id}`} className="group align-middle transition hover:bg-[#fff8d8]/50">
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedDishIds.includes(dish.id)}
+                        onChange={() => toggleRowSelection(dish.id)}
+                        className="h-4 w-4 rounded border-slate-300 accent-[#151526]"
+                      />
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                        {dish.image ? (
+                          <img src={dish.image} alt={dish.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-100 to-[#fffdf7] text-slate-400">
+                            <ImageIcon className="h-5 w-5" />
+                          </div>
+                        )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <span className="font-semibold text-gray-900 tabular-nums">{dish.price}</span>
+                    </td>
+                    <td className="px-3 py-4">
+                      <Input
+                        value={dish.name}
+                        onChange={(e) => updateDishField(sectionId, dish.id, 'name', e.target.value)}
+                        className="h-11 rounded-xl font-semibold text-slate-900"
+                      />
+                    </td>
+                    <td className="px-3 py-4">
+                      <textarea
+                        value={dish.description}
+                        onChange={(e) => updateDishField(sectionId, dish.id, 'description', e.target.value)}
+                        className="min-h-[54px] w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-700 outline-none transition focus:border-[#F2B900] focus:ring-2 focus:ring-[#FFD400]/25"
+                      />
+                    </td>
+                    <td className="px-3 py-4">
+                      <Input
+                        type="number"
+                        value={dish.price}
+                        onChange={(e) => updateDishField(sectionId, dish.id, 'price', Number(e.target.value))}
+                        className="h-10 rounded-xl font-semibold tabular-nums"
+                      />
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                          <Tags className="h-3 w-3" />
+                          {sectionName}
+                        </span>
+                        {dish.tag && (
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
+                            {dish.tag}
+                          </span>
+                        )}
+                        {dish.isBestSeller && (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                            <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                            Best
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex max-w-[220px] flex-wrap gap-1.5">
+                        {dish.allergens?.length ? dish.allergens.slice(0, 3).map((allergen) => (
+                          <span key={allergen} className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                            {allergen}
+                          </span>
+                        )) : (
+                          <span className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-400">None</span>
+                        )}
+                        {(dish.allergens?.length || 0) > 3 && (
+                          <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">+{dish.allergens.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex max-w-[240px] flex-wrap gap-1.5">
+                        {dish.dietaryTags?.length ? dish.dietaryTags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="rounded-lg bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                            {tag}
+                          </span>
+                        )) : (
+                          <span className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-400">None</span>
+                        )}
+                        {(dish.dietaryTags?.length || 0) > 3 && (
+                          <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">+{dish.dietaryTags.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-4">
+                      <div className="flex items-center gap-2">
                         <Switch
                           checked={dish.isVisible}
-                          onCheckedChange={() => toggleDishVisibility(section.id, dish.id)}
-                          className="data-[state=checked]:bg-[#5544e4]"
+                          onCheckedChange={() => toggleDishVisibility(sectionId, dish.id)}
+                          className="data-[state=checked]:bg-[#151526]"
                         />
-                        <span className="hidden sm:inline w-[40px] text-sm text-gray-600">{dish.isVisible ? 'Show' : 'Hide'}</span>
+                        <span className="text-sm font-semibold text-slate-600">{dish.isVisible ? 'Show' : 'Hide'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 rounded-xl px-3 font-bold text-[#8a6500] hover:bg-[#fff8d8]"
+                          onClick={() => handleEditDish(sectionId, dish)}
+                        >
+                          Edit
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                            <button className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
                               <MoreVertical className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => handleEditDish(section.id, dish)}>
-                              Edit
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => handleDuplicateDish(sectionId, dish)} className="gap-2">
+                              <Copy className="h-4 w-4" />
+                              Duplicate dish
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicateDish(section.id, dish)}>
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleBestSeller(section.id, dish.id)}>
+                            <DropdownMenuItem onClick={() => handleToggleBestSeller(sectionId, dish.id)} className="gap-2">
+                              <Star className="h-4 w-4" />
                               {dish.isBestSeller ? 'Remove best seller' : 'Mark as best seller'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleRenameSection(sectionId)}>
+                              Rename category
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicateSection(sectionId)}>
+                              Duplicate category
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteSection(sectionId)} className="text-red-600 focus:text-red-600">
+                              Delete category
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleDeleteDish(section.id, dish.id)}
+                              onClick={() => handleDeleteDish(sectionId, dish.id)}
                               className="text-red-600 focus:text-red-600"
                             >
-                              Delete
+                              Delete dish
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Add new dish button inside section */}
-                <button
-                  onClick={() => openAddDishForSection(section.id)}
-                  className="flex w-full items-center justify-center gap-2 px-5 py-3 pl-[52px] text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add new dish
-                </button>
-              </CollapsibleContent>
-            </Collapsible>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
 
-        {/* Add new section button */}
-        <button
-          onClick={() => setNewSectionOpen(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add new section
-        </button>
+          {filteredRows.length === 0 && (
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Search className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-lg font-bold text-slate-900">No dishes found</h2>
+              <p className="mt-1 max-w-md text-sm text-slate-500">
+                Try changing the search or filters, or add a new dish to this menu.
+              </p>
+              <Button className="mt-5 gap-2 rounded-xl bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]" onClick={openSmartAddDish}>
+                <Plus className="h-4 w-4" />
+                Add Dish
+              </Button>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Showing {filteredRows.length === 0 ? 0 : 1} to {filteredRows.length} of {dishRows.length} dishes
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-9 rounded-xl" disabled>Previous</Button>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#151526] text-sm font-bold text-[#FFD400]">1</span>
+              <Button variant="outline" size="sm" className="h-9 rounded-xl" disabled>Next</Button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Dialogs */}
       <NewSectionDialog
         open={newSectionOpen}
         onOpenChange={setNewSectionOpen}

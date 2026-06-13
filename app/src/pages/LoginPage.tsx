@@ -50,7 +50,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="admin-themed flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(255,212,0,0.18),transparent_34%),linear-gradient(135deg,#fffdf7,#ffffff_48%,#faf9f4)] px-4">
       <div className="w-full max-w-md">
         <Link
           to="/"
@@ -60,13 +60,10 @@ export default function LoginPage() {
           Back to home
         </Link>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-2xl border border-[#eee6cf] bg-white p-8 shadow-sm">
           <div className="mb-6 flex flex-col items-center text-center">
-            <div
-              className="admin-bg-accent mb-3 flex h-12 w-12 items-center justify-center rounded-xl shadow-lg"
-              style={{ boxShadow: '0 8px 24px var(--admin-accent-ring)' }}
-            >
-              <Sparkles className="h-6 w-6" style={{ color: 'var(--admin-accent-fg)' }} />
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFD400] text-[#151526] shadow-lg shadow-[#ffd400]/30">
+              <Sparkles className="h-6 w-6" />
             </div>
             <h1 className="text-xl font-semibold text-slate-900">Welcome back</h1>
             <p className="mt-1 text-sm text-slate-500">Sign in to your MenuKits workspace</p>
@@ -130,7 +127,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={submitting}
-              className="admin-bg-accent h-10 w-full text-sm font-semibold text-white shadow-sm hover:opacity-90"
+              className="h-10 w-full bg-[#FFD400] text-sm font-bold text-[#151526] shadow-sm hover:bg-[#F2B900]"
             >
               {submitting ? (
                 <>
@@ -145,7 +142,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center text-xs text-slate-500">
             Don&apos;t have an account?{' '}
-            <Link to="/register" className="admin-text-accent font-medium hover:underline">
+            <Link to="/register" className="font-bold text-[#8a6500] hover:underline">
               Create one
             </Link>
           </div>

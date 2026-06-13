@@ -146,7 +146,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
           <div className="mx-auto max-w-[460px] rounded-2xl border border-gray-200 bg-white shadow-2xl">
             <div className="p-5">
               <div className="flex items-start gap-3 mb-3">
-                <Shield className="h-5 w-5 shrink-0 mt-0.5 text-indigo-600" />
+                <Shield className="h-5 w-5 shrink-0 mt-0.5 text-[#b98900]" />
                 <div className="min-w-0 flex-1">
                   <h3 className="text-[15px] font-bold text-gray-900">Cookie Consent</h3>
                   <p className="mt-1.5 text-[13px] leading-relaxed text-gray-500">
@@ -170,7 +170,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 </button>
                 <button
                   onClick={handleAcceptAll}
-                  className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-[13px] font-semibold text-white hover:bg-indigo-700 transition-colors shadow-md"
+                  className="flex-1 rounded-xl bg-[#FFD400] py-2.5 text-[13px] font-bold text-[#151526] hover:bg-[#F2B900] transition-colors shadow-md"
                 >
                   Accept All
                 </button>
@@ -223,7 +223,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                     </p>
                   </div>
                   <div className="shrink-0 mt-0.5">
-                    <div className="h-6 w-10 rounded-full bg-indigo-600 flex items-center px-0.5 cursor-default">
+                    <div className="h-6 w-10 rounded-full bg-[#151526] flex items-center px-0.5 cursor-default">
                       <div className="h-5 w-5 rounded-full bg-white ml-auto" />
                     </div>
                   </div>

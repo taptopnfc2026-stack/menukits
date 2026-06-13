@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/select';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Promotion } from '@/types';
 
 const COVER_IMAGES = [
@@ -49,6 +50,7 @@ const COVER_IMAGES = [
 export default function RestaurantPage() {
   const { completeStep } = useChecklist();
   const { menus, updateMenu } = useMenuContext();
+  const { token: authToken } = useAuth();
 
   /* Use the first menu as target for restaurant info */
   const menuId = menus[0]?.id || '1';
@@ -70,7 +72,10 @@ export default function RestaurantPage() {
   useEffect(() => {
     async function loadRestaurant() {
       try {
-        const res = await fetch('/api/restaurants');
+        if (!authToken) return;
+        const res = await fetch('/api/restaurants', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
         if (res.ok) {
           const rows = await res.json();
           if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
@@ -83,7 +88,9 @@ export default function RestaurantPage() {
       } catch { /* ignore */ }
     }
     loadRestaurant();
-  }, []);
+    // Load once after auth is ready; avoid resetting the URL field while the user edits restaurant details.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
 
   // Cover image state
   const [selectedImageIndex, setSelectedImageIndex] = useState(
@@ -173,15 +180,13 @@ export default function RestaurantPage() {
     setSlugSaving(true);
     setSlugError('');
     try {
-      const sessionRes = await fetch('/api/auth/session');
-      if (!sessionRes.ok) throw new Error('Not authenticated');
-      const { token } = await sessionRes.json();
+      if (!authToken) throw new Error('Not authenticated');
       
       const res = await fetch('/api/restaurants', {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ name: restaurantName, slug: slug.trim().toLowerCase() }),
       });
@@ -311,7 +316,7 @@ export default function RestaurantPage() {
       title: '',
       description: '',
       type: 'special',
-      bgColor: '#5544e4',
+      bgColor: '#FFD400',
       textColor: '#ffffff',
       isActive: true,
       emoji: '✨',
@@ -487,7 +492,7 @@ export default function RestaurantPage() {
                       href={`/hub/${slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs font-medium text-[#5544e4] hover:text-[#4433cc] transition-colors"
+                      className="flex items-center gap-1 text-xs font-bold text-[#8a6500] hover:text-[#151526] transition-colors"
                     >
                       <ExternalLink className="h-3 w-3" />
                       Preview
@@ -514,7 +519,7 @@ export default function RestaurantPage() {
                 {/* URL preview + actions */}
                 {slug && !slugError && (
                   <p className="text-xs text-gray-500 mt-1 break-all">
-                    <span className="font-medium text-gray-700">{window?.location ? window.location.origin : 'menukits.eu'}</span>/hub/<span className="font-mono text-[#5544e4] font-semibold">{slug}</span>
+                    <span className="font-medium text-gray-700">{window?.location ? window.location.origin : 'menukits.eu'}</span>/hub/<span className="font-mono text-[#8a6500] font-semibold">{slug}</span>
                   </p>
                 )}
 
@@ -541,7 +546,7 @@ export default function RestaurantPage() {
                     size="sm"
                     onClick={handleSaveSlug}
                     disabled={slugSaving || !slug.trim()}
-                    className={`text-xs h-8 flex-1 ${slugSaved ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-50' : 'bg-[#5544e4] hover:bg-[#4433cc] text-white'}`}
+                    className={`text-xs h-8 flex-1 ${slugSaved ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-50' : 'bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold'}`}
                   >
                     {slugSaving ? 'Saving...' : (slugSaved ? 'URL saved!' : 'Save URL')}
                   </Button>
@@ -549,7 +554,7 @@ export default function RestaurantPage() {
               </div>
 
               {/* Save */}
-              <Button onClick={handleSaveDetails} className="w-full bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base">
+              <Button onClick={handleSaveDetails} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
                 Save
               </Button>
             </div>
@@ -598,7 +603,7 @@ export default function RestaurantPage() {
               {customCoverImage ? (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ring-2 ring-[#5544e4]/20 border-[#5544e4] relative group`}
+                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ring-2 ring-[#FFD400]/40 border-[#F2B900] relative group`}
                   title="Change image"
                 >
                   <img src={customCoverImage} alt="Uploaded" className="h-full w-full object-cover" />
@@ -621,7 +626,7 @@ export default function RestaurantPage() {
                   onClick={() => { setSelectedImageIndex(i); setCustomCoverImage(null); }}
                   className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
                     !customCoverImage && selectedImageIndex === i
-                      ? 'border-[#5544e4] ring-2 ring-[#5544e4]/20'
+                      ? 'border-[#F2B900] ring-2 ring-[#FFD400]/40'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -632,7 +637,7 @@ export default function RestaurantPage() {
 
             {/* Save */}
             <div className="mt-8 flex justify-center">
-              <Button onClick={handleSaveCoverImage} className="min-w-[240px] bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base">
+              <Button onClick={handleSaveCoverImage} className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
                 Save
               </Button>
             </div>
@@ -730,7 +735,7 @@ export default function RestaurantPage() {
               </div>
 
               {/* Save */}
-              <Button onClick={handleSaveOnlineLinks} className="w-full bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base">
+              <Button onClick={handleSaveOnlineLinks} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
                 Save
               </Button>
             </div>
@@ -782,7 +787,7 @@ export default function RestaurantPage() {
                   </Select>
                 </div>
 
-                <Button onClick={handleSaveLanguage} className="w-full bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base">
+                <Button onClick={handleSaveLanguage} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
                   Save
                 </Button>
               </div>
@@ -793,7 +798,7 @@ export default function RestaurantPage() {
               <div className="mb-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Multiple languages</h2>
-                  <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-[#5544e4]">
+                  <span className="rounded-full bg-[#fff8d8] px-2.5 py-0.5 text-xs font-semibold text-[#8a6500]">
                     Premium
                   </span>
                 </div>
@@ -804,8 +809,8 @@ export default function RestaurantPage() {
 
               <div className="mx-auto max-w-md">
                 <div className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
-                    <TranslateIcon className="h-7 w-7 text-[#5544e4]" />
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#fff8d8]">
+                    <TranslateIcon className="h-7 w-7 text-[#b98900]" />
                   </div>
                   <h3 className="mb-2 text-base font-semibold text-gray-900">
                     Add translated guest languages
@@ -813,7 +818,7 @@ export default function RestaurantPage() {
                   <p className="mx-auto mb-6 max-w-xs text-sm leading-relaxed text-gray-500">
                     Premium lets you add more languages and automatically translate your menu for guests.
                   </p>
-                  <Button className="bg-[#5544e4] hover:bg-[#4433cc] px-6">
+                  <Button className="bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold px-6">
                     Upgrade to Premium
                   </Button>
                 </div>
@@ -836,7 +841,7 @@ export default function RestaurantPage() {
                 </div>
                 <Button
                   onClick={createPromotion}
-                  className="gap-2 bg-[#5544e4] hover:bg-[#4433cc]"
+                  className="gap-2 bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold"
                 >
                   <Plus className="h-4 w-4" />
                   Add Promotion
@@ -846,8 +851,8 @@ export default function RestaurantPage() {
               {/* Empty state */}
               {promotions.length === 0 && (
                 <div className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-16 text-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
-                    <Gift className="h-7 w-7 text-[#5544e4]" />
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#fff8d8]">
+                    <Gift className="h-7 w-7 text-[#b98900]" />
                   </div>
                   <h3 className="mb-2 text-base font-semibold text-gray-900">
                     No promotions yet
@@ -889,7 +894,7 @@ export default function RestaurantPage() {
                 <div className="mt-8 flex justify-center">
                   <Button
                     onClick={handleSavePromotions}
-                    className="min-w-[240px] bg-[#5544e4] hover:bg-[#4433cc] h-12 text-base"
+                    className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base"
                   >
                     Save Promotions
                   </Button>
@@ -985,7 +990,7 @@ const TYPE_STYLES: Record<string, { label: string; icon: React.ElementType; colo
   special: { label: 'Special', icon: Sparkles, color: 'bg-amber-50 text-amber-700' },
   event: { label: 'Event', icon: CalendarDays, color: 'bg-blue-50 text-blue-700' },
   seasonal: { label: 'Seasonal', icon: Leaf, color: 'bg-emerald-50 text-emerald-700' },
-  custom: { label: 'Custom', icon: Star, color: 'bg-purple-50 text-purple-700' },
+  custom: { label: 'Custom', icon: Star, color: 'bg-[#fff8d8] text-[#8a6500]' },
 };
 
 interface PromoCardProps {
@@ -1087,7 +1092,7 @@ function PromotionCard({ promo, index, total, onEdit, onDelete, onToggleActive, 
 /* ==================== PromoModal ==================== */
 
 const BG_COLORS = [
-  { value: '#5544e4', name: 'Purple' },
+  { value: '#FFD400', name: 'Yellow' },
   { value: '#f5b800', name: 'Gold' },
   { value: '#059669', name: 'Green' },
   { value: '#dc2626', name: 'Red' },
@@ -1225,7 +1230,7 @@ function PromoModal({ promo, isNew, onChange, onSave, onClose }: PromoModalProps
                 onClick={() => update({ emoji: undefined })}
                 className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition-colors ${
                   !promo.emoji
-                    ? 'border-[#5544e4] bg-indigo-50 ring-1 ring-[#5544e4]/20'
+                    ? 'border-[#F2B900] bg-[#fff8d8] ring-1 ring-[#FFD400]/40'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -1237,7 +1242,7 @@ function PromoModal({ promo, isNew, onChange, onSave, onClose }: PromoModalProps
                   onClick={() => update({ emoji })}
                   className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${
                     promo.emoji === emoji
-                      ? 'border-[#5544e4] bg-indigo-50 ring-1 ring-[#5544e4]/20'
+                      ? 'border-[#F2B900] bg-[#fff8d8] ring-1 ring-[#FFD400]/40'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -1305,7 +1310,7 @@ function PromoModal({ promo, isNew, onChange, onSave, onClose }: PromoModalProps
           <Button
             onClick={onSave}
             disabled={!promo.title.trim()}
-            className="h-11 bg-[#5544e4] hover:bg-[#4433cc] min-w-[100px]"
+            className="h-11 bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold min-w-[100px]"
           >
             {isNew ? 'Create' : 'Update'}
           </Button>

@@ -45,9 +45,9 @@ export function Header() {
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    'gap-1.5 text-sm font-medium transition-colors hover:text-[#5544e4] whitespace-nowrap px-2.5',
+                    'gap-1.5 text-sm font-medium transition-colors hover:text-[#8a6500] whitespace-nowrap px-2.5',
                     isActive
-                      ? 'text-[#5544e4] bg-[#5544e4]/5'
+                      ? 'text-[#151526] bg-[#fff8d8]'
                       : 'text-gray-500'
                   )}
                 >
@@ -68,7 +68,7 @@ export function Header() {
           >
             Free trial
           </Button>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5544e4] text-sm font-medium text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#151526] text-sm font-medium text-[#FFD400]">
             C
           </div>
         </div>

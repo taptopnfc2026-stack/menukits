@@ -15,19 +15,18 @@ function aiProxy(): Plugin {
         const targetPath = req.url?.replace(/^\/api\/openai/, '') || '/'
 
         // 如果请求中带有 provider 信息，根据 provider 路由到不同的 API
-        let hostname = 'api.moonshot.cn';
-        let authHeader = req.headers['authorization'];
+        const hostname = 'api.moonshot.cn';
+        const proxyHeaders: http.OutgoingHttpHeaders = { ...req.headers };
+        delete proxyHeaders.host;
+        delete proxyHeaders.origin;
 
         const options: http.RequestOptions = {
           hostname,
           port: 443,
           path: targetPath,
           method: req.method,
-          headers: { ...req.headers },
+          headers: proxyHeaders,
         }
-
-        delete options.headers?.['host']
-        ;(options.headers as any)?.['origin'] && delete (options.headers as any)['origin']
 
         const proxyReq = https.request(options, (proxyRes) => {
           res.writeHead(proxyRes.statusCode || 200, proxyRes.headers)

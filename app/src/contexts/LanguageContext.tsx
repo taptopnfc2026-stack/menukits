@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 /* ================================================================
    Supported Languages — 24 mainstream global languages
@@ -114,7 +114,7 @@ interface Translations {
   gotIt: string;
 }
 
-const TRANSLATIONS: Record<string, Translations> = {
+const TRANSLATIONS: Record<string, Partial<Translations>> = {
   en: {
     switchLanguage: 'Switch language',
     add: 'Add',
@@ -308,7 +308,7 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenMilk: 'Leche',
     allergenNuts: 'Frutos secos',
     allergenCelery: 'Apio',
-    allergenMostaza: 'Mostaza',
+    allergenMustard: 'Mostaza',
     allergenSesame: 'Sésamo',
     allergenSulfites: 'Sulfitos',
     allergenLupin: 'Altramuces',
@@ -1419,7 +1419,7 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenCelery: 'Celer',
     allergenMustard: 'Hořčice',
     allergenSesame: 'Sézam',
-    allergenSulfity: 'Sulfity',
+    allergenSulfites: 'Sulfity',
     allergenLupin: 'Vikuł',
     allergenMolluscs: 'Měkkýši',
     learningAboutDish: 'Poznáváme tento pokrm...',
@@ -1484,7 +1484,7 @@ const TRANSLATIONS: Record<string, Translations> = {
     allergenCelery: 'Țelină',
     allergenMustard: 'Muștar',
     allergenSesame: 'Seminte de susan',
-    allergenSulfite: 'Sulfiți',
+    allergenSulfites: 'Sulfiți',
     allergenLupin: 'Lupin',
     allergenMolluscs: 'Moluste',
     learningAboutDish: 'Aflăm despre acest preparat...',
@@ -1692,7 +1692,7 @@ const TRANSLATIONS: Record<string, Translations> = {
 
 /* Fallback for unsupported languages: use English */
 function getTranslations(code: string): Translations {
-  return TRANSLATIONS[code] || TRANSLATIONS['en']!;
+  return { ...TRANSLATIONS.en, ...TRANSLATIONS[code] } as Translations;
 }
 
 /* ================================================================

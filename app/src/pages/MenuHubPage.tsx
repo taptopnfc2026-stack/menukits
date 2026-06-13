@@ -1,32 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, UtensilsCrossed, ArrowLeft, Loader2 } from 'lucide-react';
+import { dbRowToMenu } from '@/lib/menu-row';
 import type { Menu } from '@/types';
 
 const COVER_IMAGE = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop';
 const RESTAURANT_NAME = 'My Restaurant';
-
-/** Transform DB row → frontend Menu shape */
-function dbRowToMenu(row: any): Menu {
-  if (row?.data && typeof row.data === 'object') {
-    return {
-      ...row.data,
-      id: row.id,
-      title: row.data.title || row.name || '',
-      isVisible: row.is_public ?? true,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-  return {
-    id: row.id,
-    title: row.name || 'Untitled',
-    sections: [],
-    isVisible: row.is_public ?? true,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 export default function MenuHubPage() {
   const [menus, setMenus] = useState<Menu[]>([]);

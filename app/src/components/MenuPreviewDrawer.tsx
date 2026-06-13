@@ -242,7 +242,7 @@ export function MenuPreviewDrawer({ menus, restaurantName = 'My Restaurant', ini
                 <div className="mx-auto mb-2 h-1 w-32 rounded-full bg-gray-200" />
                 <p className="text-[10px] text-gray-400">
                   Powered by{' '}
-                  <span className="font-semibold text-[#5544e4]">menukits.eu</span>
+                  <span className="font-semibold text-[#b98900]">menukits.eu</span>
                 </p>
               </div>
             </>

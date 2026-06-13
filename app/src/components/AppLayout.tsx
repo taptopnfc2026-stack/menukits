@@ -12,7 +12,7 @@ import {
   LogOut,
   User,
   X,
-  Check,
+  Menu as MenuIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,11 +21,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { label: 'My menus', icon: LayoutGrid, path: '/app' },
-  { label: 'Analytics', icon: BarChart3, path: '/app/analytics' },
+  { label: 'Restaurant', icon: Store, path: '/app/restaurant' },
+  { label: 'Translations', icon: Languages, path: '/app/translations' },
   { label: 'QR Code', icon: QrCode, path: '/app/qr-code' },
   { label: 'Paper Menu', icon: FileText, path: '/app/paper-menu' },
-  { label: 'Translations', icon: Languages, path: '/app/translations' },
-  { label: 'Restaurant', icon: Store, path: '/app/restaurant' },
+  { label: 'Analytics', icon: BarChart3, path: '/app/analytics' },
 ];
 
 export default function AppLayout() {
@@ -33,82 +33,129 @@ export default function AppLayout() {
   const { user, logout, updateProfile } = useAuth();
   const initial = (user?.displayName || user?.email || 'U')[0].toUpperCase();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editName, setEditName] = useState(user?.displayName || '');
   const [saving, setSaving] = useState(false);
 
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+    <aside className="flex h-full flex-col border-r border-[#eee6cf] bg-[#fffdf7]">
+      <div className="flex h-20 items-center justify-between px-5">
+        <Link to="/app" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFD400] text-[#151526] shadow-lg shadow-[#ffd400]/25">
+            <UtensilsCrossed className="h-5 w-5" />
+          </span>
+          <span className="text-lg font-extrabold tracking-tight text-slate-950">
+            Menu<span className="text-[#f5b800]">Kits</span>
+          </span>
+        </Link>
+        {mobile && (
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      <div className="px-4">
+        <Link
+          to="/"
+          onClick={() => setSidebarOpen(false)}
+          className="mb-4 flex items-center gap-2 rounded-xl border border-[#eee6cf] bg-white px-3 py-2 text-sm font-semibold text-slate-500 transition hover:border-[#f2b900]/40 hover:bg-[#fff8d8] hover:text-[#151526]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to website
+        </Link>
+      </div>
+
+      <nav className="flex-1 space-y-1 px-3">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            item.path === '/app'
+              ? location.pathname === '/app'
+              : location.pathname.startsWith(item.path);
+          return (
+            <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}>
+              <span
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition',
+                  isActive
+                    ? 'bg-[#151526] text-white shadow-lg shadow-[#151526]/12'
+                    : 'text-slate-600 hover:bg-[#fff8d8] hover:text-[#151526]'
+                )}
+              >
+                <Icon className={cn('h-4 w-4', isActive ? 'text-[#FFD400]' : 'text-slate-400 group-hover:text-[#b98900]')} />
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="space-y-3 border-t border-slate-100 p-4">
+        <div className="rounded-2xl border border-[#f1d36a] bg-[#fff8d8] px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#8a6500]">Free trial</p>
+          <p className="mt-1 text-xs leading-5 text-[#8a6500]/80">Build, preview, and publish your smart menu.</p>
+        </div>
+        {user && (
+          <button
+            onClick={() => { setEditName(user.displayName || ''); setProfileOpen(true); setSidebarOpen(false); }}
+            className="flex w-full items-center gap-3 rounded-2xl border border-[#eee6cf] bg-white p-3 text-left transition hover:border-[#f2b900]/40 hover:bg-[#fff8d8]"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#151526] text-sm font-bold text-[#FFD400]">
+              {initial}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-bold text-slate-900">{user.displayName || 'Restaurant Admin'}</span>
+              <span className="block truncate text-xs text-slate-500">{user.email}</span>
+            </span>
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          {/* Logo + back to landing */}
-          <div className="flex items-center gap-4 shrink-0">
-            <Link to="/" className="text-gray-400 hover:text-gray-600 transition-colors" title="Back to home">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <Link to="/app" className="flex items-center gap-1.5">
-              <UtensilsCrossed className="h-7 w-7 text-[#f5b800]" />
-              <span className="text-[22px] font-bold tracking-tight text-[#1a1520]">Menu</span>
-              <span className="text-[22px] font-bold tracking-tight text-[#f5b800]">kits</span>
-            </Link>
+    <div className="min-h-screen bg-[#faf9f4]">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block lg:w-64">
+        <SidebarContent />
+      </div>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="relative h-full w-[280px] max-w-[86vw] shadow-2xl">
+            <SidebarContent mobile />
           </div>
+        </div>
+      )}
 
-          {/* Navigation */}
-          <nav className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.path === '/app'
-                  ? location.pathname === '/app'
-                  : location.pathname.startsWith(item.path);
-              return (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'gap-1.5 text-sm font-medium transition-colors hover:text-[#5544e4] whitespace-nowrap px-2.5',
-                      isActive
-                        ? 'text-[#5544e4] bg-[#5544e4]/5'
-                        : 'text-gray-500'
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="hidden lg:inline">{item.label}</span>
-                  </Button>
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden border-yellow-300 bg-yellow-50 text-xs font-semibold text-yellow-700 hover:bg-yellow-100 sm:inline-flex"
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur lg:hidden">
+        <div className="flex h-16 items-center justify-between px-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-xl border border-slate-200 p-2 text-slate-600"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </button>
+          <Link to="/app" className="flex items-center gap-2">
+            <UtensilsCrossed className="h-6 w-6 text-[#f5b800]" />
+            <span className="text-lg font-extrabold text-slate-950">Menu<span className="text-[#f5b800]">Kits</span></span>
+          </Link>
+          {user ? (
+            <button
+              onClick={() => { setEditName(user.displayName || ''); setProfileOpen(true); }}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#151526] text-sm font-bold text-[#FFD400]"
             >
-              Free trial
-            </Button>
-            {user && (
-              <>
-                <span className="hidden sm:inline text-sm font-medium text-gray-700 mr-1">
-                  {user.displayName}
-                </span>
-                <button
-                  onClick={() => { setEditName(user.displayName || ''); setProfileOpen(true); }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5544e4] text-sm font-medium text-white hover:bg-[#4433cc] transition-colors cursor-pointer"
-                  title={user?.displayName || 'User'}
-                >
-                  {initial}
-                </button>
-              </>
-            )}
-          </div>
+              {initial}
+            </button>
+          ) : <span className="h-9 w-9" />}
         </div>
       </header>
 
-      {/* Page content */}
-      <main>
+      <main className="lg:pl-64">
         <Outlet />
         <ChecklistBadge />
       </main>
@@ -131,7 +178,7 @@ export default function AppLayout() {
 
             {/* Header with avatar */}
             <div className="flex flex-col items-center mb-6 pt-2">
-              <div className="h-16 w-16 rounded-full bg-[#5544e4] flex items-center justify-center text-2xl font-bold text-white mb-3">
+              <div className="h-16 w-16 rounded-full bg-[#151526] flex items-center justify-center text-2xl font-bold text-[#FFD400] mb-3">
                 {initial}
               </div>
               <h2 className="text-lg font-semibold text-gray-900">Account Settings</h2>
@@ -147,7 +194,7 @@ export default function AppLayout() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="Your display name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5544e4]/20 focus:border-[#5544e4] transition-colors"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FFD400]/30 focus:border-[#f2b900] transition-colors"
                 />
               </div>
               
@@ -186,7 +233,7 @@ export default function AppLayout() {
                     setSaving(false);
                   }
                 }}
-                className="flex-1 bg-[#5544e4] hover:bg-[#4433cc] text-white"
+                className="flex-1 bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>

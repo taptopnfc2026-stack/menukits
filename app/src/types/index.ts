@@ -64,18 +64,18 @@ export interface Promotion {
 
 /* Restaurant contact & info embedded in menu */
 export interface RestaurantInfo {
-  name: string;
-  description: string;
-  coverImage: string;
+  name?: string;
+  description?: string;
+  coverImage?: string;
   address?: string;
   phone?: string;
   email?: string;
   currency?: string;           // e.g. "EUR", "USD", "CNY"
   hours?: DayHours[];          // weekly opening hours
   socialLinks?: SocialLinks;
-  onlineLinks: string[];
-  languages: string[];
-  promotions: Promotion[];
+  onlineLinks?: string[];
+  languages?: string[];
+  promotions?: Promotion[];
 }
 
 export interface Menu {

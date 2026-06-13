@@ -33,7 +33,7 @@ export default function LanguageSwitcher() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-sm px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-lg ring-1 ring-black/5 hover:bg-white transition-all active:scale-95"
       >
-        <Globe className="h-4 w-4 text-[#5544e4]" />
+        <Globe className="h-4 w-4 text-[#b98900]" />
         <span className="hidden sm:inline">{t('switchLanguage')}</span>
         <span className="sm:hidden">{currentLang.nativeLabel}</span>
         <ChevronDown
@@ -67,19 +67,19 @@ export default function LanguageSwitcher() {
                   }}
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                     lang.code === uiLang
-                      ? 'bg-[#5544e4]/8 text-[#5544e4] font-semibold'
+                      ? 'bg-[#fff8d8] text-[#8a6500] font-semibold'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <span className="text-base leading-none shrink-0 w-6 text-center">{lang.flag}</span>
                   <span className="flex-1 min-w-0">
                     <span className="block truncate">{lang.label}</span>
-                    <span className={`block text-[11px] ${lang.code === uiLang ? 'text-[#5544e4]/70' : 'text-gray-400'}`}>
+                    <span className={`block text-[11px] ${lang.code === uiLang ? 'text-[#8a6500]/70' : 'text-gray-400'}`}>
                       {lang.nativeLabel}
                     </span>
                   </span>
                   {lang.code === uiLang && (
-                    <Check className="h-4 w-4 shrink-0 text-[#5544e4]" />
+                    <Check className="h-4 w-4 shrink-0 text-[#b98900]" />
                   )}
                 </button>
               ))}

@@ -24,6 +24,8 @@ const MAX_SIZE_MB = 15;
 const IMAGE_REGEX = /^image\//;
 
 type Phase = 'upload' | 'generating' | 'success' | 'error';
+type RecognizedPreviewDish = { name: string; description: string; price: number };
+type RecognizedPreviewSection = { name: string; dishes: RecognizedPreviewDish[] };
 
 interface UploadedFile {
   id: string;
@@ -93,7 +95,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
   const [progressMsg, setProgressMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [recognizedMenu, setRecognizedMenu] = useState<Menu | null>(null);
-  const [recognizedSections, setRecognizedSections] = useState<{ name: string; dishes: { name: string; description: string; price: number }[][] }>([]);
+  const [recognizedSections, setRecognizedSections] = useState<RecognizedPreviewSection[]>([]);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasApiKey = isApiKeyConfigured();
@@ -160,12 +162,12 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
         throw new Error('Could not recognize menu content, please ensure the image is clear');
       }
 
-      const menu = convertToMenu(result, files);
+      const menu = convertToMenu(result, files.map((f) => f.file));
       setRecognizedMenu(menu);
       // Convert recognized sections for the preview display
       const sectionsForPreview = result.sections.map((sec) => ({
         name: sec.name,
-        dishes: [sec.dishes],
+        dishes: sec.dishes,
       }));
       setRecognizedSections(sectionsForPreview);
       setPhase('success');
@@ -186,7 +188,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
     for (let i = 0; i < MOCK_RECOGNIZED_SECTIONS.length; i++) {
       await new Promise((r) => setTimeout(r, 700 + Math.random() * 600));
       const section = MOCK_RECOGNIZED_SECTIONS[i];
-      const dishChunks: { name: string; description: string; price: number }[][] = [];
+      const dishChunks: RecognizedPreviewDish[][] = [];
       for (let j = 0; j < section.dishes.length; j++) {
         dishChunks.push(section.dishes.slice(0, j + 1));
         await new Promise((r) => setTimeout(r, 300 + Math.random() * 400));
@@ -286,18 +288,18 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
         onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files); }}
         className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 cursor-pointer transition-all ${
-          isDragging ? 'border-[#5544e4] bg-[#5544e4]/5'
+          isDragging ? 'border-[#F2B900] bg-[#fff8d8]'
             : files.length > 0 ? 'border-gray-200 bg-gray-50'
-              : 'border-gray-300 bg-white hover:border-[#5544e4]/40 hover:bg-[#5544e4]/5'
+              : 'border-gray-300 bg-white hover:border-[#F2B900]/60 hover:bg-[#fff8d8]'
         }`}
       >
         <input ref={inputRef} type="file" accept=".png,.jpg,.jpeg,.webp,.bmp,.tiff,.tif,.pdf,image/*,application/pdf"
           multiple className="hidden" onChange={(e) => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ''; }}} />
-        <div className={`flex h-14 w-14 items-center justify-center rounded-full mb-3 ${isDragging ? 'bg-[#5544e4]/10' : 'bg-gray-100'}`}>
-          <Upload className={`h-6 w-6 ${isDragging ? 'text-[#5544e4]' : 'text-gray-400'}`} />
+        <div className={`flex h-14 w-14 items-center justify-center rounded-full mb-3 ${isDragging ? 'bg-[#fff8d8]' : 'bg-gray-100'}`}>
+          <Upload className={`h-6 w-6 ${isDragging ? 'text-[#b98900]' : 'text-gray-400'}`} />
         </div>
         <p className="text-sm text-gray-600">
-          <span className="font-semibold text-[#5544e4]">Click to upload</span>{' '}
+          <span className="font-semibold text-[#b98900]">Click to upload</span>{' '}
           <span className="text-gray-500">or drag and drop</span>
         </p>
       </div>
@@ -358,7 +360,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
   const renderUploadFooter = () => (
     <div className="flex justify-end border-t px-6 py-4">
       <Button onClick={startGeneration} disabled={files.length === 0}
-        className="min-w-[140px] bg-[#5544e4] hover:bg-[#4433cc]">
+        className="min-w-[140px] bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]">
         Generate menu
       </Button>
     </div>
@@ -371,9 +373,9 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
     <div className="flex flex-col items-center justify-center h-[400px] px-6 space-y-6">
       {/* Spinner */}
       <div className="relative">
-        <div className="h-16 w-16 rounded-full border-4 border-[#5544e4]/20 border-t-[#5544e4] animate-spin" />
+        <div className="h-16 w-16 rounded-full border-4 border-[#FFD400]/30 border-t-[#151526] animate-spin" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-[#5544e4]" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#b98900]" />
         </div>
       </div>
 
@@ -403,7 +405,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
             {step.done ? (
               <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
             ) : i === 1 ? (
-              <Loader2 className="h-4 w-4 animate-spin text-[#5544e4] shrink-0" />
+              <Loader2 className="h-4 w-4 animate-spin text-[#b98900] shrink-0" />
             ) : (
               <div className="h-4 w-4 rounded-full border-2 border-gray-200 shrink-0" />
             )}
@@ -418,7 +420,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
 
   const renderGeneratingFooter = () => (
     <div className="flex justify-end border-t px-6 py-4">
-      <Button disabled className="min-w-[160px] bg-indigo-100 text-indigo-600 hover:bg-indigo-100 cursor-wait">
+      <Button disabled className="min-w-[160px] bg-[#fff8d8] text-[#8a6500] hover:bg-[#fff8d8] cursor-wait">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Generating menu...
       </Button>
@@ -454,7 +456,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
               {recognizedSections[activeSectionIdx].name}
             </h3>
             <div className="space-y-4">
-              {recognizedSections[activeSectionIdx].dishes[0].map((dish, di) => (
+              {recognizedSections[activeSectionIdx].dishes.map((dish, di) => (
                 <div key={di}>
                   <h4 className="font-semibold text-gray-900">{dish.name}</h4>
                   {dish.description && (
@@ -486,7 +488,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
         </div>
       </div>
       <div className="flex justify-end border-t px-6 py-4">
-        <Button onClick={handleGoToMenus} className="min-w-[140px] bg-[#5544e4] hover:bg-[#4433cc]">
+        <Button onClick={handleGoToMenus} className="min-w-[140px] bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]">
           Go to menus
         </Button>
       </div>

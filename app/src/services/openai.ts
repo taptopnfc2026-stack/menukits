@@ -42,6 +42,14 @@ interface RecognizedSection {
   dishes: RecognizedDish[];
 }
 
+type ImageContent = {
+  type: 'image_url';
+  image_url: {
+    url: string;
+    detail: 'auto' | 'high';
+  };
+};
+
 // ---- System Prompt ----
 const SYSTEM_PROMPT = `You are a professional menu digitization assistant. 
 Your task is to analyze images of restaurant menus and extract all menu items into structured JSON.
@@ -220,7 +228,7 @@ function getProviderConfig() {
     openaiRecognitionModel: settings.openai.recognitionModel || 'gpt-4o',
     openaiTranslationModel: settings.openai.translationModel || 'gpt-4o-mini',
     // 向后兼容
-    hasAnyKey: hasRecognitionKey(settings) || hasTranslationKey(settings) || (legacyApiKey && !legacyApiKey.startsWith('填写你的')),
+    hasAnyKey: hasRecognitionKey(settings) || hasTranslationKey(settings) || Boolean(legacyApiKey && !legacyApiKey.startsWith('填写你的')),
   };
 }
 
@@ -247,14 +255,14 @@ export async function recognizeMenuFromImages(
   onProgress?.('Preparing images...');
 
   // Process regular images
-  const imageContents = await Promise.all(
+  const imageContents: ImageContent[] = await Promise.all(
     imageFiles.map(async (file) => {
       const base64 = await compressImage(file);
       return {
         type: 'image_url' as const,
         image_url: {
           url: `data:image/jpeg;base64,${base64}`,
-          detail: 'auto' as const,
+          detail: 'auto',
         },
       };
     })
@@ -271,7 +279,7 @@ export async function recognizeMenuFromImages(
             type: 'image_url' as const,
             image_url: {
               url: `data:image/jpeg;base64,${base64}`,
-              detail: 'high' as const,
+              detail: 'high',
             },
           });
         }

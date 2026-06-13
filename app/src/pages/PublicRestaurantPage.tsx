@@ -1,29 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, UtensilsCrossed, ArrowLeft, Loader2 } from 'lucide-react';
+import { dbRowToMenu } from '@/lib/menu-row';
 import type { Menu } from '@/types';
-
-/** Transform DB row → frontend Menu shape */
-function dbRowToMenu(row: any): Menu {
-  if (row?.data && typeof row.data === 'object') {
-    return {
-      ...row.data,
-      id: row.id,
-      title: row.data.title || row.name || '',
-      isVisible: row.is_public ?? true,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  }
-  return {
-    id: row.id,
-    title: row.name || 'Untitled',
-    sections: [],
-    isVisible: row.is_public ?? true,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 export default function PublicRestaurantPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -34,10 +13,11 @@ export default function PublicRestaurantPage() {
 
   useEffect(() => {
     if (!slug) return;
+    const restaurantSlug = slug;
     
     async function load() {
       try {
-        const res = await fetch(`/api/public-restaurant?slug=${encodeURIComponent(slug)}`);
+        const res = await fetch(`/api/public-restaurant?slug=${encodeURIComponent(restaurantSlug)}`);
         if (res.ok) {
           const data = await res.json();
           setRestaurant(data.restaurant);

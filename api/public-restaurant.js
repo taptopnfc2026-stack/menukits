@@ -31,6 +31,7 @@ export default async function handler(req, res) {
     const restResult = await supabaseQuery('restaurants', {
       method: 'GET',
       query: { select: 'id,name,slug,address,phone,website,user_id', slug: `eq.${encodeURIComponent(slug)}`, limit: '1' },
+      useServiceRole: true,
     });
 
     if (!restResult.ok) {
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
         is_public: 'eq.true',
         order: 'updated_at.desc',
       },
+      useServiceRole: true,
     });
 
     if (!menuResult.ok) {

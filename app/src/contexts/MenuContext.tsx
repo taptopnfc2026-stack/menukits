@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { mockMenus } from '@/data/mockData';
-import { supabase, getSession } from '@/lib/supabase';
+import { dbRowToMenu } from '@/lib/menu-row';
+import { deleteMenuFromCloud, flushPendingMenuDeletes, getPendingMenuDeleteIds, queuePendingMenuDelete } from '@/lib/menu-api';
+import { getDeletedCloudMenuIds, isCloudMenuId } from '@/lib/menu-sync';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Menu } from '@/types';
 
 interface MenuContextType {
@@ -31,43 +34,39 @@ function saveToStorage(menus: Menu[]) {
   } catch {}
 }
 
-/** Transform DB row → frontend Menu shape */
-function dbRowToMenu(row: any): Menu {
-  // If row.data has the full menu object, prefer it
-  if (row?.data && typeof row.data === 'object') {
-    return {
-      ...row.data,
-      id: row.id,
-      title: row.data.title || row.name || '',
-      isVisible: row.is_public ?? true,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+function nextCloudIdSet(currentMenus: Menu[], previousCloudIds: Iterable<string>, deletedIds: string[], remaps: Record<string, string>) {
+  const next = new Set(
+    currentMenus
+      .map((menu) => remaps[menu.id] || menu.id)
+      .filter(isCloudMenuId)
+  );
+  const deleted = new Set(deletedIds);
+
+  for (const id of previousCloudIds) {
+    if (isCloudMenuId(id) && !next.has(id) && !deleted.has(id)) {
+      next.add(id);
+    }
   }
-  // Fallback: construct from flat columns
-  return {
-    id: row.id,
-    title: row.name || 'Untitled',
-    sections: [],
-    isVisible: row.is_public ?? true,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+
+  return next;
 }
 
 export function MenuProvider({ children }: { children: React.ReactNode }) {
+  const { token: authToken, isLoading: isAuthLoading } = useAuth();
   // Authenticated users start with empty state; only fall back to localStorage for offline mode
   const [menus, setMenus] = useState<Menu[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isInitialMount = useRef(true);
   const hasLoadedFromCloud = useRef(false);
+  const skipNextAutoSave = useRef(false);
+  const cloudMenuIds = useRef<Set<string>>(new Set());
 
   // ─── Load menus from cloud on mount ────────────────
   useEffect(() => {
     async function loadMenus() {
+      if (isAuthLoading) return;
       try {
-        const session = await getSession();
-        if (!session?.access_token) {
+        if (!authToken) {
           // Not logged in — try localStorage fallback for demo/offline
           const cached = loadFromStorage();
           if (cached && cached.length > 0) {
@@ -79,7 +78,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
 
         // Logged-in user — always fetch from cloud, never show stale local data
         const res = await fetch('/api/menus', {
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${authToken}` },
         });
         
         hasLoadedFromCloud.current = true;
@@ -87,29 +86,41 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const rows = await res.json();
           if (Array.isArray(rows) && rows.length > 0) {
-            const mapped = rows.map(dbRowToMenu);
+            const flushedIds = await flushPendingMenuDeletes(authToken);
+            const pendingIds = new Set(getPendingMenuDeleteIds());
+            const hiddenIds = new Set([...flushedIds, ...pendingIds]);
+            const visibleRows = rows.filter((row: { id?: string }) => !hiddenIds.has(row?.id || ''));
+            const mapped = visibleRows.map(dbRowToMenu);
+            cloudMenuIds.current = new Set(rows.map((row: { id?: string }) => row?.id).filter(isCloudMenuId));
+            skipNextAutoSave.current = true;
             setMenus(mapped);
             saveToStorage(mapped); // keep localStorage as cache
           } else {
             // New user — genuinely empty
+            cloudMenuIds.current = new Set();
+            skipNextAutoSave.current = true;
             setMenus([]);
             try { localStorage.removeItem(STORAGE_KEY); } catch {}
           }
         } else {
           // API error — for logged-in users, show empty rather than stale cache
           console.warn('Failed to load menus from cloud:', res.status);
+          cloudMenuIds.current = new Set();
+          skipNextAutoSave.current = true;
           setMenus([]);
         }
       } catch (e) {
         // Network error — for logged-in users, show empty rather than stale cache
         console.warn('Network error loading menus:', e);
+        cloudMenuIds.current = new Set();
+        skipNextAutoSave.current = true;
         setMenus([]);
       } finally {
         setIsLoading(false);
       }
     }
     loadMenus();
-  }, []);
+  }, [authToken, isAuthLoading]);
 
   // ─── Auto-save to cloud on every change ───────────
   useEffect(() => {
@@ -118,13 +129,26 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
       return; // skip on initial load from cloud
     }
 
+    if (skipNextAutoSave.current) {
+      skipNextAutoSave.current = false;
+      return;
+    }
+
     // Always update localStorage as fast cache
     saveToStorage(menus);
 
+    if (!hasLoadedFromCloud.current) return;
+
     // Debounced cloud save — returns ID remaps for newly created menus
     const timer = setTimeout(async () => {
-      const remaps = await saveMenusToCloud(menus);
-      if (remaps && Object.keys(remaps).length > 0) {
+      const result = await saveMenusToCloud(menus, authToken, cloudMenuIds.current);
+      if (!result) return;
+
+      const remaps = result.remaps;
+      cloudMenuIds.current = nextCloudIdSet(menus, cloudMenuIds.current, result.deletedIds, remaps);
+
+      if (Object.keys(remaps).length > 0) {
+        skipNextAutoSave.current = true;
         setMenus((prev) =>
           prev.map((m) => (remaps[m.id] ? { ...m, id: remaps[m.id] } : m))
         );
@@ -132,7 +156,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [menus]);
+  }, [menus, authToken]);
 
   const getMenuById = useCallback((id: string) => menus.find((m) => m.id === id), [menus]);
 
@@ -147,13 +171,19 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
 
   /** Explicit save trigger for critical operations */
   const saveToCloud = useCallback(async () => {
-    const remaps = await saveMenusToCloud(menus);
-    if (remaps && Object.keys(remaps).length > 0) {
+    const result = await saveMenusToCloud(menus, authToken, cloudMenuIds.current);
+    if (!result) return;
+
+    const remaps = result.remaps;
+    cloudMenuIds.current = nextCloudIdSet(menus, cloudMenuIds.current, result.deletedIds, remaps);
+
+    if (Object.keys(remaps).length > 0) {
+      skipNextAutoSave.current = true;
       setMenus((prev) =>
         prev.map((m) => (remaps[m.id] ? { ...m, id: remaps[m.id] } : m))
       );
     }
-  }, [menus]);
+  }, [menus, authToken]);
 
   return (
     <MenuContext.Provider value={{ menus, setMenus, getMenuById, updateMenu, isLoading, saveToCloud }}>
@@ -164,26 +194,41 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
 
 // ─── Cloud sync helper ─────────────────────────────────
 
-/** Save all menus to cloud. Returns a map of oldId → newId for freshly created menus. */
-async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> | null> {
+type MenuSyncResult = {
+  remaps: Record<string, string>;
+  deletedIds: string[];
+};
+
+/** Save all menus to cloud and remove cloud menus that disappeared locally. */
+async function saveMenusToCloud(menus: Menu[], authToken: string | null, previousCloudIds: Iterable<string> = []): Promise<MenuSyncResult | null> {
   try {
-    const session = await getSession();
-    if (!session?.access_token) return null;
+    if (!authToken) return null;
 
     const remaps: Record<string, string> = {};
+    const deletedIds: string[] = [];
+
+    for (const menuId of getDeletedCloudMenuIds(previousCloudIds, menus)) {
+      try {
+        await deleteMenuFromCloud(menuId, authToken);
+        deletedIds.push(menuId);
+      } catch (error) {
+        queuePendingMenuDelete(menuId);
+        console.error(`[Sync] Failed to delete removed menu ${menuId}:`, error);
+      }
+    }
 
     for (const menu of menus) {
       // Heuristic: numeric/timestamp IDs are local-only — go straight to POST
-      const isLocalId = /^\d{10,}$/.test(menu.id);
+      const isLocalId = !isCloudMenuId(menu.id);
 
       let res: Response;
       if (!isLocalId) {
         // Try UPDATE for menus that likely exist in DB
-        res = await fetch(`/api/menus/${menu.id}`, {
+        res = await fetch(`/api/menus?id=${encodeURIComponent(menu.id)}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify(menu),
         });
@@ -207,7 +252,7 @@ async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> |
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(menu),
       });
@@ -226,7 +271,7 @@ async function saveMenusToCloud(menus: Menu[]): Promise<Record<string, string> |
       }
     }
 
-    return Object.keys(remaps).length > 0 ? remaps : null;
+    return { remaps, deletedIds };
   } catch (e) {
     console.warn('Cloud sync failed:', e);
     return null;

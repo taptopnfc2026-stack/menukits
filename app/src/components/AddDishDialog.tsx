@@ -288,7 +288,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
                     size="sm"
                     onClick={handleGenerateDescription}
                     disabled={isGeneratingDesc || !name.trim()}
-                    className="h-7 gap-1 px-2 text-xs font-medium text-[#5544e4] hover:bg-purple-50 disabled:opacity-50"
+                    className="h-7 gap-1 px-2 text-xs font-medium text-[#8a6500] hover:bg-[#fff8d8] disabled:opacity-50"
                   >
                     {isGeneratingDesc ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -363,7 +363,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-all hover:border-gray-300 hover:bg-gray-100 active:border-[#5544e4] active:bg-purple-50"
+                  className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 transition-all hover:border-gray-300 hover:bg-gray-100 active:border-[#F2B900] active:bg-[#fff8d8]"
                 >
                   <div className="relative mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gray-200">
                     <ImagePlus className="h-6 w-6 text-gray-400" />
@@ -407,7 +407,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
                   onClick={() => toggleAllergen(a)}
                   className={`rounded-full border px-3 py-1 text-sm font-medium transition-all ${
                     selectedAllergens.includes(a)
-                      ? 'border-[#5544e4] bg-[#5544e4] text-white'
+                      ? 'border-[#151526] bg-[#151526] text-[#FFD400]'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}
                 >
@@ -428,7 +428,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
                   onClick={() => toggleDietary(d)}
                   className={`rounded-full border px-3 py-1 text-sm font-medium transition-all ${
                     selectedDietary.includes(d)
-                      ? 'border-[#5544e4] bg-[#5544e4] text-white'
+                      ? 'border-[#151526] bg-[#151526] text-[#FFD400]'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}
                 >
@@ -440,7 +440,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
 
           {/* Save button */}
           <div className="flex justify-end pt-2">
-            <Button onClick={handleSave} className="min-w-[120px] bg-[#5544e4] hover:bg-[#4433cc]">
+            <Button onClick={handleSave} className="min-w-[120px] bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900]">
               {isEditing ? 'Save changes' : 'Create dish'}
             </Button>
           </div>

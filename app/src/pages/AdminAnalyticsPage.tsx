@@ -171,7 +171,7 @@ function MetricCard({
   icon: Icon,
 }: {
   label: string;
-  value: string;
+  value: string | number;
   sub: string;
   icon: typeof BarChart3;
 }) {
