@@ -22,17 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DIETARY_TAGS, suggestDietaryTags, suggestDishImage } from '@/lib/dish-ai';
 import type { Dish } from '@/types';
 
 const ALLERGENS = [
   'Gluten', 'Peanuts', 'Eggs', 'Fish', 'Crustaceans',
   'Soybeans', 'Milk', 'Nuts', 'Celery', 'Mustard',
   'Sesame', 'Sulfites', 'Lupin', 'Molluscs',
-];
-
-const DIETARY_TAGS = [
-  'Vegan', 'Vegetarian', 'Gluten-free',
-  'Lactose-free', 'Dairy-free', 'Spicy',
 ];
 
 // --- AI Description Generator ---
@@ -149,6 +145,8 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingDietary, setIsGeneratingDietary] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill form when editing
@@ -225,6 +223,45 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
       alert('Failed to generate description. Please try again.');
     } finally {
       setIsGeneratingDesc(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!name.trim()) {
+      alert('Please enter a dish name first.');
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      setImagePreview(suggestDishImage({ name: name.trim(), description: description.trim() }));
+    } catch {
+      alert('Failed to generate an image. Please try again.');
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleGenerateDietaryTags = async () => {
+    if (!name.trim() && !description.trim()) {
+      alert('Please enter a dish name or description first.');
+      return;
+    }
+    setIsGeneratingDietary(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      setSelectedDietary(
+        suggestDietaryTags({
+          name: name.trim(),
+          description: description.trim(),
+          allergens: selectedAllergens,
+          dietaryTags: selectedDietary,
+        })
+      );
+    } catch {
+      alert('Failed to generate dietary tags. Please try again.');
+    } finally {
+      setIsGeneratingDietary(false);
     }
   };
 
@@ -321,7 +358,24 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
 
             {/* Image Upload */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">Image</label>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-gray-700">Image</label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGenerateImage}
+                  disabled={isGeneratingImage || !name.trim()}
+                  className="h-7 gap-1 px-2 text-xs font-medium text-[#8a6500] hover:bg-[#fff8d8] disabled:opacity-50"
+                >
+                  {isGeneratingImage ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  {isGeneratingImage ? 'Generating...' : 'AI Image'}
+                </Button>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -419,7 +473,24 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
 
           {/* Dietary tags */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Dietary tags</label>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-gray-700">Dietary tags</label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerateDietaryTags}
+                disabled={isGeneratingDietary || (!name.trim() && !description.trim())}
+                className="h-7 gap-1 px-2 text-xs font-medium text-[#8a6500] hover:bg-[#fff8d8] disabled:opacity-50"
+              >
+                {isGeneratingDietary ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                {isGeneratingDietary ? 'Tagging...' : 'AI Tags'}
+              </Button>
+            </div>
             <div className="flex flex-wrap gap-2">
               {DIETARY_TAGS.map((d) => (
                 <button
