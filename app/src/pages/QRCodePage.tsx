@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2, AlertCircle, RefreshCw, ChevronLeft, Star, Plus, Info } from 'lucide-react';
+import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2, AlertCircle, RefreshCw, ChevronLeft, Star, Plus, Info, Minus, ShoppingCart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,16 +30,47 @@ function EmbeddedMenuPreview({
 }) {
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [showCart, setShowCart] = useState(false);
   const visibleMenus = useMemo(() => menus.filter((menu) => menu.isVisible), [menus]);
   const selectedMenu = selectedMenuId ? visibleMenus.find((menu) => menu.id === selectedMenuId) : null;
   const visibleSections = useMemo(
     () => selectedMenu?.sections.filter((section) => section.dishes.some((dish) => dish.isVisible)) ?? [],
     [selectedMenu]
   );
+  const visibleDishes = useMemo(
+    () => visibleSections.flatMap((section) => section.dishes.filter((dish) => dish.isVisible)),
+    [visibleSections]
+  );
+  const totalItems = useMemo(() => Object.values(cart).reduce((sum, qty) => sum + qty, 0), [cart]);
+  const totalPrice = useMemo(
+    () => visibleDishes.reduce((sum, dish) => sum + (cart[dish.id] || 0) * (Number(dish.price) || 0), 0),
+    [cart, visibleDishes]
+  );
+  const cartItems = useMemo(
+    () => visibleDishes
+      .map((dish) => ({ dish, quantity: cart[dish.id] || 0 }))
+      .filter((item) => item.quantity > 0),
+    [cart, visibleDishes]
+  );
+
+  const addPreviewItem = (dishId: string) => {
+    setCart((prev) => ({ ...prev, [dishId]: (prev[dishId] || 0) + 1 }));
+  };
+
+  const updatePreviewQuantity = (dishId: string, quantity: number) => {
+    setCart((prev) => {
+      const next = { ...prev };
+      if (quantity <= 0) delete next[dishId];
+      else next[dishId] = quantity;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!selectedMenu) {
       setActiveSectionId(null);
+      setShowCart(false);
       return;
     }
     setActiveSectionId((current) => {
@@ -158,7 +189,7 @@ function EmbeddedMenuPreview({
                     ))}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-[12px] pb-6">
+                  <div className={`flex-1 overflow-y-auto px-[12px] ${totalItems > 0 ? 'pb-24' : 'pb-6'}`}>
                     {visibleSections.map((section) => {
                       const dishes = section.dishes.filter((dish) => dish.isVisible);
                       return (
@@ -218,14 +249,34 @@ function EmbeddedMenuPreview({
                                   </div>
 
                                   <div className="mt-auto flex justify-end pt-2">
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm"
-                                      onClick={(event) => event.preventDefault()}
-                                    >
-                                      <Plus className="h-3.5 w-3.5" />
-                                      Add
-                                    </button>
+                                    {(cart[dish.id] || 0) === 0 ? (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm active:scale-95"
+                                        onClick={() => addPreviewItem(dish.id)}
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Add
+                                      </button>
+                                    ) : (
+                                      <div className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-black/[0.04] px-1 py-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => updatePreviewQuantity(dish.id, (cart[dish.id] || 0) - 1)}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full text-black transition hover:bg-black/10"
+                                        >
+                                          <Minus className="h-3.5 w-3.5" />
+                                        </button>
+                                        <span className="min-w-[20px] text-center text-sm font-bold text-black">{cart[dish.id]}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => addPreviewItem(dish.id)}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-white transition hover:bg-gray-800"
+                                        >
+                                          <Plus className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -241,6 +292,92 @@ function EmbeddedMenuPreview({
                   <p className="text-sm text-gray-400">No visible dishes in this menu</p>
                 </div>
               )}
+            </div>
+          )}
+          {selectedMenu && totalItems > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 z-40">
+              <button
+                type="button"
+                onClick={() => setShowCart(true)}
+                className="flex w-full items-center gap-2 rounded-t-2xl bg-black px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.25)] active:scale-[0.99]"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
+                  <ShoppingCart className="h-4 w-4" />
+                </span>
+                <span className="flex-1 text-left text-[13px] font-semibold text-white">
+                  {totalItems} item{totalItems > 1 ? 's' : ''} in cart
+                </span>
+                <span className="rounded-full bg-white/15 px-2.5 py-1 text-sm font-bold tabular-nums text-white">
+                  {totalPrice.toFixed(2)}
+                </span>
+              </button>
+            </div>
+          )}
+          {showCart && (
+            <div className="absolute inset-0 z-50 flex items-end">
+              <button
+                type="button"
+                aria-label="Close cart preview"
+                className="absolute inset-0 bg-black/35 backdrop-blur-[1px]"
+                onClick={() => setShowCart(false)}
+              />
+              <div className="relative flex max-h-[76%] w-full flex-col rounded-t-3xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                  <div>
+                    <p className="text-base font-bold text-gray-900">Your order</p>
+                    <p className="text-xs text-gray-500">{totalItems} item{totalItems > 1 ? 's' : ''} selected</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCart(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                  <div className="space-y-3">
+                    {cartItems.map(({ dish, quantity }) => (
+                      <div key={dish.id} className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-gray-900">{dish.name}</p>
+                          <p className="text-xs font-bold tabular-nums text-gray-500">{Number(dish.price || 0).toFixed(2)}</p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-1 py-1">
+                          <button
+                            type="button"
+                            onClick={() => updatePreviewQuantity(dish.id, quantity - 1)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-700"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="min-w-[18px] text-center text-sm font-bold text-gray-900">{quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => addPreviewItem(dish.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-black text-white"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t border-gray-100 px-5 py-4">
+                  <div className="mb-3 flex items-center justify-between text-sm font-bold text-gray-900">
+                    <span>Subtotal</span>
+                    <span>{totalPrice.toFixed(2)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCart(false)}
+                    className="w-full rounded-full bg-black px-5 py-3 text-sm font-bold text-white"
+                  >
+                    Continue preview
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
