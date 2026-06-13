@@ -23,6 +23,7 @@ import {
   ListFilter,
   FolderPlus,
   Copy,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -38,6 +39,31 @@ import { AddDishDialog } from '@/components/AddDishDialog';
 import { NewSectionDialog } from '@/components/NewSectionDialog';
 import { MenuPreviewDrawer } from '@/components/MenuPreviewDrawer';
 import type { Menu, Section, Dish } from '@/types';
+
+const ALLERGEN_KEYWORDS: Array<{ name: string; keywords: string[] }> = [
+  { name: 'Gluten', keywords: ['bread', 'flour', 'wheat', 'barley', 'rye', 'pasta', 'noodle', 'dumpling', 'cake', 'pastry', 'crust', 'batter', 'breadcrumb', 'couscous'] },
+  { name: 'Crustaceans', keywords: ['shrimp', 'prawn', 'crab', 'lobster', 'crayfish', 'scampi', 'langoustine'] },
+  { name: 'Eggs', keywords: ['egg', 'mayonnaise', 'mayo', 'mousse', 'custard', 'hollandaise', 'omelet', 'omelette', 'quiche', 'meringue'] },
+  { name: 'Fish', keywords: ['fish', 'salmon', 'tuna', 'cod', 'bass', 'anchovy', 'sardine', 'snapper', 'trout', 'caviar', 'roe'] },
+  { name: 'Peanuts', keywords: ['peanut', 'groundnut', 'satay'] },
+  { name: 'Soybeans', keywords: ['soy', 'soya', 'tofu', 'edamame', 'miso', 'tamari', 'tempeh'] },
+  { name: 'Milk', keywords: ['milk', 'cream', 'butter', 'cheese', 'yogurt', 'lactose', 'parmesan', 'mozzarella', 'brie', 'gorgonzola', 'gruyère', 'gruyere', 'cheddar', 'feta'] },
+  { name: 'Nuts', keywords: ['almond', 'hazelnut', 'walnut', 'cashew', 'pecan', 'pistachio', 'macadamia', 'pine nut', 'praline', 'marzipan'] },
+  { name: 'Celery', keywords: ['celery', 'celeriac'] },
+  { name: 'Mustard', keywords: ['mustard', 'dijon'] },
+  { name: 'Sesame', keywords: ['sesame', 'tahini'] },
+  { name: 'Sulfites', keywords: ['sulfite', 'sulphite', 'wine', 'beer', 'vinegar', 'balsamic'] },
+  { name: 'Lupin', keywords: ['lupin', 'lupine'] },
+  { name: 'Molluscs', keywords: ['mollusc', 'mollusk', 'squid', 'octopus', 'snail', 'escargot', 'clam', 'oyster', 'mussel', 'scallop'] },
+];
+
+function detectLikelyAllergensForDish(dish: Dish): string[] {
+  const text = `${dish.name || ''} ${dish.description || ''}`.toLowerCase();
+  const detected = ALLERGEN_KEYWORDS
+    .filter((item) => item.keywords.some((keyword) => text.includes(keyword)))
+    .map((item) => item.name);
+  return Array.from(new Set([...(dish.allergens || []), ...detected]));
+}
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -157,6 +183,7 @@ export default function EditorPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [selectedDishIds, setSelectedDishIds] = useState<string[]>([]);
+  const [allergenDetectStatus, setAllergenDetectStatus] = useState<'idle' | 'detecting' | 'done'>('idle');
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const dishRows = useMemo(() => {
@@ -306,6 +333,28 @@ export default function EditorPage() {
     } catch (error: any) {
       alert(error?.message || 'Could not import this menu file.');
     }
+  };
+
+  const handleAutoDetectAllergens = () => {
+    if (dishRows.length === 0 || allergenDetectStatus === 'detecting') return;
+    setAllergenDetectStatus('detecting');
+
+    saveMenu((prev) => ({
+      ...prev,
+      updatedAt: new Date().toISOString(),
+      sections: prev.sections.map((section) => ({
+        ...section,
+        dishes: section.dishes.map((dish) => ({
+          ...dish,
+          allergens: detectLikelyAllergensForDish(dish),
+        })),
+      })),
+    }));
+
+    window.setTimeout(() => {
+      setAllergenDetectStatus('done');
+      window.setTimeout(() => setAllergenDetectStatus('idle'), 1800);
+    }, 350);
   };
 
   const toggleSection = (sectionId: string) => {
@@ -674,7 +723,27 @@ export default function EditorPage() {
                   <th className="w-64 px-3 py-4">Description</th>
                   <th className="w-28 px-3 py-4">Price</th>
                   <th className="w-48 px-3 py-4">Tags</th>
-                  <th className="w-52 px-3 py-4">Allergens</th>
+                  <th className="w-52 px-3 py-4">
+                    <div className="flex items-center gap-2">
+                      <span>Allergens</span>
+                      <button
+                        type="button"
+                        onClick={handleAutoDetectAllergens}
+                        disabled={dishRows.length === 0 || allergenDetectStatus === 'detecting'}
+                        aria-label="AI auto-detect allergens"
+                        title="AI auto-detect likely allergens for all dishes. Reference only; please review manually."
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#f1d36a] bg-[#fff8d8] text-[#8a6500] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFD400] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {allergenDetectStatus === 'detecting' ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : allergenDetectStatus === 'done' ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Sparkles className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </th>
                   <th className="w-56 px-3 py-4">Dietary Tags</th>
                   <th className="w-36 px-3 py-4">Visible</th>
                   <th className="w-32 px-4 py-4 text-right">Actions</th>
