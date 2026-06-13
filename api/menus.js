@@ -32,8 +32,16 @@ function getAuthHeader(req) {
 
 async function getUser(req) {
   const token = getAuthHeader(req);
-  if (!token) return null;
-  return await verifySupabaseToken(token);
+  if (!token) {
+    console.log('[Menus] No Authorization header found');
+    return null;
+  }
+  console.log('[Menus] Verifying token...');
+  const user = await verifySupabaseToken(token);
+  if (!user) {
+    console.log('[Menus] Token verification returned null (invalid or expired)');
+  }
+  return user;
 }
 
 function readBody(req) {
@@ -97,10 +105,12 @@ async function handleList(req, res) {
 // ─── Create menu ──────────────────────────────────
 async function handleCreate(req, res) {
   const user = await getUser(req);
-  if (!user) return err(res, 401, 'Unauthorized');
+  if (!user) return err(res, 401, 'Unauthorized — please log in again');
 
   const body = await readBody(req);
-  if (!body) return err(res, 400, 'Invalid body');
+  if (!body) return err(res, 400, 'Invalid request body');
+
+  console.log(`[Menus] Creating menu for user`, user?.id);
 
   const slug = (body.title || 'menu')
     .toLowerCase()
@@ -154,16 +164,18 @@ async function handleGet(req, res, id) {
 // ─── Update menu ──────────────────────────────────
 async function handleUpdate(req, res, id) {
   const user = await getUser(req);
-  if (!user) return err(res, 401, 'Unauthorized');
+  if (!user) return err(res, 401, 'Unauthorized — please log in again');
 
   const body = await readBody(req);
-  if (!body) return err(res, 400, 'Invalid body');
+  if (!body) return err(res, 400, 'Invalid request body');
+
+  console.log(`[Menus] Updating menu ${id} for user`, user?.id);
 
   const result = await supabaseQuery('menus', {
     method: 'PUT',
-    query: { id: `eq.${id}` },
+    query: { id: `eq.${id}`, user_id: `eq.${user.id}` },
     body: {
-      name: body.title,
+      name: body.title || 'Untitled Menu',
       is_public: body.isVisible !== false,
       settings: typeof body === 'object' ? body : {},
     },
@@ -171,11 +183,11 @@ async function handleUpdate(req, res, id) {
   });
 
   if (!result.ok) {
+    console.error('[Menus] Update failed:', result.status, result.error);
     if (result.status === 404 || (Array.isArray(result.data) && result.data.length === 0)) {
       return err(res, 404, 'Menu not found');
     }
-    console.error('[Menus] Update failed:', result.status, result.error);
-    return err(res, 502, `Failed to update menu: ${result.error}`);
+    return err(res, 502, `Update failed: ${result.error || 'Unknown database error'}`);
   }
 
   const row = Array.isArray(result.data) ? result.data[0] : null;
