@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2, AlertCircle, RefreshCw, ChevronLeft, Star } from 'lucide-react';
+import { Download, Copy, CheckCircle2, QrCode, ChevronDown, ExternalLink, Loader2, AlertCircle, RefreshCw, ChevronLeft, Star, Plus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -124,64 +124,110 @@ function EmbeddedMenuPreview({
               </div>
             </>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="shrink-0 px-5 pb-2 pt-12">
+            <div className="flex min-h-0 flex-1 flex-col bg-[#fafafa]">
+              <div className="shrink-0 bg-white px-5 pb-2 pt-12">
                 <button
                   type="button"
                   onClick={() => setSelectedMenuId(null)}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 transition-colors hover:text-[#151526]"
+                  className="inline-flex max-w-[220px] items-center gap-1 text-sm font-semibold text-gray-700 transition-colors hover:text-[#151526]"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  {selectedMenu.title}
+                  <span className="truncate">{selectedMenu.title}</span>
                 </button>
               </div>
 
               {visibleSections.length > 0 ? (
                 <>
-                  <div className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-5 py-3">
+                  <div className="no-scrollbar flex shrink-0 gap-0 overflow-x-auto border-y border-gray-100 bg-white px-[14px]">
                     {visibleSections.map((section) => (
                       <button
                         key={section.id}
                         type="button"
                         onClick={() => setActiveSectionId(section.id)}
-                        className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                        className={`relative shrink-0 whitespace-nowrap px-[18px] py-[14px] text-[15px] font-semibold transition-colors ${
                           activeSectionId === section.id
-                            ? 'bg-[#151526] text-white'
-                            : 'border border-gray-300 bg-white text-gray-600 hover:bg-[#fff8d8]'
+                            ? 'text-black'
+                            : 'text-gray-500 hover:text-gray-700'
                         }`}
                       >
                         {section.name}
+                        {activeSectionId === section.id && (
+                          <span className="absolute bottom-0 left-1/2 h-[3px] w-4/5 -translate-x-1/2 rounded-full bg-black" />
+                        )}
                       </button>
                     ))}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-5 pb-6">
+                  <div className="flex-1 overflow-y-auto px-[12px] pb-6">
                     {visibleSections.map((section) => {
                       const dishes = section.dishes.filter((dish) => dish.isVisible);
                       return (
-                        <div key={section.id} className={activeSectionId !== section.id ? 'hidden' : ''}>
-                          <h3 className="mb-3 text-lg font-bold text-gray-900">{section.name}</h3>
-                          <div className="space-y-4">
+                        <div key={section.id} className={activeSectionId !== section.id ? 'hidden' : 'pt-4'}>
+                          <h3 className="mb-3 text-[20px] font-bold text-gray-900">{section.name}</h3>
+                          <div className="space-y-3.5">
                             {dishes.map((dish) => (
-                              <div key={dish.id} className="flex gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="truncate font-semibold text-gray-900">{dish.name}</h4>
+                              <div key={dish.id} className="flex w-full gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                                <div className="shrink-0">
+                                  {dish.image ? (
+                                    <div className="h-[82px] w-[82px] overflow-hidden rounded-xl">
+                                      <img src={dish.image} alt={dish.name} className="h-full w-full object-cover" />
+                                    </div>
+                                  ) : (
+                                    <div className="flex h-[82px] w-[82px] items-center justify-center rounded-xl bg-gray-100 text-gray-300">
+                                      <Info className="h-7 w-7" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex min-w-0 flex-1 flex-col">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="text-[15px] font-bold leading-snug text-gray-900">{dish.name}</h4>
+                                      {dish.tag && (
+                                        <span className="mt-1 inline-block rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-black/70">
+                                          {dish.tag}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="shrink-0 text-[15px] font-bold tabular-nums text-gray-900">
+                                      {typeof dish.price === 'number' ? dish.price.toFixed(2) : dish.price}
+                                    </span>
+                                  </div>
+
+                                  {dish.description && (
+                                    <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-gray-500">{dish.description}</p>
+                                  )}
+
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                     {dish.isBestSeller && (
-                                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-yellow-50 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">
+                                      <span className="inline-flex items-center gap-0.5 rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-800">
                                         <Star className="h-2.5 w-2.5 fill-yellow-500 text-yellow-500" />
-                                        Best
+                                        Best seller
                                       </span>
                                     )}
+                                    {dish.dietaryTags?.slice(0, 2).map((tag) => (
+                                      <span key={tag} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                    {dish.allergens?.slice(0, 2).map((allergen) => (
+                                      <span key={allergen} className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                        {allergen}
+                                      </span>
+                                    ))}
                                   </div>
-                                  <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-500">{dish.description}</p>
-                                  <p className="mt-1 font-bold text-gray-900">{dish.price}</p>
+
+                                  <div className="mt-auto flex justify-end pt-2">
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm"
+                                      onClick={(event) => event.preventDefault()}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                      Add
+                                    </button>
+                                  </div>
                                 </div>
-                                {dish.image && (
-                                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                                    <img src={dish.image} alt={dish.name} className="h-full w-full object-cover" />
-                                  </div>
-                                )}
                               </div>
                             ))}
                           </div>
