@@ -165,10 +165,10 @@ function SectionHeader({ label, title, copy }: { label?: string; title: ReactNod
 
 function PhonePreview() {
   return (
-    <div className="relative mx-auto w-[286px] rounded-[34px] border-[10px] border-[#171717] bg-white shadow-2xl">
-      <div className="absolute left-1/2 top-3 h-6 w-24 -translate-x-1/2 rounded-full bg-black" />
-      <div className="overflow-hidden rounded-[24px] pt-12">
-        <div className="h-28 bg-[linear-gradient(135deg,#1f1a16,#FFD400)] px-5 pt-8 text-white">
+    <div className="relative mx-auto w-[252px] rounded-[30px] border-[8px] border-[#171717] bg-white shadow-2xl">
+      <div className="absolute left-1/2 top-3 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
+      <div className="overflow-hidden rounded-[22px] pt-10">
+        <div className="h-24 bg-[linear-gradient(135deg,#1f1a16,#FFD400)] px-5 pt-7 text-white">
           <p className="text-sm font-bold">My Restaurant</p>
           <p className="mt-1 text-xs text-white/75">Digital menu hub</p>
         </div>
@@ -180,7 +180,7 @@ function PhonePreview() {
               </span>
             ))}
           </div>
-          {dishes.slice(0, 3).map(([name, price, tag]) => (
+          {dishes.slice(0, 2).map(([name, price, tag]) => (
             <div key={name} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
               <div className="flex gap-3">
                 <div className="h-14 w-14 rounded-md bg-[#FFF4B8]">
@@ -238,6 +238,54 @@ function DashboardPreview() {
   );
 }
 
+function ProductShowcase() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-[0_24px_70px_rgba(21,21,38,0.12)]">
+      <div className="grid items-center gap-5 xl:grid-cols-[minmax(0,1fr)_270px]">
+        <div className="min-w-0 overflow-hidden rounded-xl">
+          <DashboardPreview />
+        </div>
+        <div className="rounded-xl bg-[#FFFBDF] px-3 py-5">
+          <PhonePreview />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonIllustration({ type }: { type: 'diner' | 'restaurant' }) {
+  const skin = type === 'diner' ? '#D99A6C' : '#B97952';
+  const hair = type === 'diner' ? '#151526' : '#3A2A21';
+  const shirt = type === 'diner' ? '#FFD400' : '#151526';
+
+  return (
+    <svg viewBox="0 0 220 150" className="h-32 w-44" aria-hidden="true">
+      <rect x="12" y="20" width="196" height="118" rx="28" fill="#FFFAE6" />
+      <circle cx="62" cy="46" r="22" fill="#FFD400" opacity="0.55" />
+      <rect x="128" y="36" width="48" height="72" rx="10" fill="#fff" stroke="#E7DDAE" strokeWidth="3" />
+      <rect x="137" y="48" width="30" height="5" rx="2.5" fill="#151526" opacity="0.16" />
+      <rect x="137" y="61" width="25" height="5" rx="2.5" fill="#FFD400" />
+      <rect x="137" y="74" width="30" height="5" rx="2.5" fill="#151526" opacity="0.16" />
+      <path d="M63 72c-20 0-36 18-36 40v14h78v-14c0-22-18-40-42-40Z" fill={shirt} />
+      <circle cx="64" cy="54" r="24" fill={skin} />
+      <path d="M39 55c2-25 18-35 36-30 16 4 22 17 19 34-15-7-29-8-55-4Z" fill={hair} />
+      <path d="M55 63c6 6 14 6 20 0" fill="none" stroke="#151526" strokeWidth="3" strokeLinecap="round" />
+      {type === 'diner' ? (
+        <>
+          <rect x="84" y="86" width="44" height="34" rx="8" fill="#fff" stroke="#151526" strokeWidth="3" />
+          <circle cx="106" cy="103" r="7" fill="#FFD400" />
+        </>
+      ) : (
+        <>
+          <path d="M40 27c8-16 40-16 48 0" fill="#fff" stroke="#151526" strokeWidth="3" strokeLinecap="round" />
+          <rect x="82" y="86" width="50" height="34" rx="8" fill="#FFD400" stroke="#151526" strokeWidth="3" />
+          <path d="M94 98h26M94 108h20" stroke="#151526" strokeWidth="3" strokeLinecap="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function Hero() {
   return (
     <section className="border-b border-slate-200 bg-[#FFFEF8] px-4 py-16 sm:px-6 lg:py-20">
@@ -275,13 +323,8 @@ function Hero() {
             ))}
           </div>
         </div>
-        <div className="relative">
-          <div className="absolute -right-2 top-8 hidden w-[78%] lg:block">
-            <DashboardPreview />
-          </div>
-          <div className="relative z-10 lg:-ml-4">
-            <PhonePreview />
-          </div>
+        <div>
+          <ProductShowcase />
         </div>
       </div>
     </section>
@@ -322,12 +365,17 @@ function ProblemSection() {
         />
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           {groups.map((group) => (
-            <div key={group.title} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <IconBadge icon={group.title === 'For Diners' ? Heart : Store} />
-                <div>
-                  <h3 className="text-2xl font-extrabold text-[#151526]">{group.title}</h3>
-                  <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{group.copy}</p>
+            <div key={group.title} className="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <IconBadge icon={group.title === 'For Diners' ? Heart : Store} />
+                  <div>
+                    <h3 className="text-2xl font-extrabold text-[#151526]">{group.title}</h3>
+                    <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{group.copy}</p>
+                  </div>
+                </div>
+                <div className="-mr-2 -mt-4 hidden shrink-0 sm:block">
+                  <PersonIllustration type={group.title === 'For Diners' ? 'diner' : 'restaurant'} />
                 </div>
               </div>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
