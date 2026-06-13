@@ -9,6 +9,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,8 +25,32 @@ const MAX_SIZE_MB = 15;
 const IMAGE_REGEX = /^image\//;
 
 type Phase = 'upload' | 'generating' | 'success' | 'error';
-type RecognizedPreviewDish = { name: string; description: string; price: number };
+type RecognizedPreviewDish = { name: string; description: string; price: number; allergens?: string[] };
 type RecognizedPreviewSection = { name: string; dishes: RecognizedPreviewDish[] };
+
+const ALLERGEN_KEYWORDS: Array<{ name: string; keywords: string[] }> = [
+  { name: 'Gluten', keywords: ['bread', 'flour', 'wheat', 'barley', 'rye', 'pasta', 'noodle', 'cake', 'pastry', 'crust', 'batter', 'breadcrumb'] },
+  { name: 'Crustaceans', keywords: ['shrimp', 'prawn', 'crab', 'lobster', 'crayfish', 'scampi'] },
+  { name: 'Eggs', keywords: ['egg', 'mayonnaise', 'mousse', 'custard', 'hollandaise', 'omelet', 'omelette', 'quiche'] },
+  { name: 'Fish', keywords: ['fish', 'salmon', 'tuna', 'cod', 'bass', 'anchovy', 'sardine', 'snapper', 'caviar'] },
+  { name: 'Peanuts', keywords: ['peanut', 'groundnut', 'satay'] },
+  { name: 'Soybeans', keywords: ['soy', 'tofu', 'edamame', 'miso', 'tamari', 'tempeh'] },
+  { name: 'Milk', keywords: ['milk', 'cream', 'butter', 'cheese', 'yogurt', 'lactose', 'parmesan', 'mozzarella', 'brie', 'gorgonzola', 'gruyère', 'gruyere'] },
+  { name: 'Nuts', keywords: ['almond', 'hazelnut', 'walnut', 'cashew', 'pecan', 'pistachio', 'macadamia', 'pine nut', 'praline'] },
+  { name: 'Celery', keywords: ['celery', 'celeriac'] },
+  { name: 'Mustard', keywords: ['mustard', 'dijon'] },
+  { name: 'Sesame', keywords: ['sesame', 'tahini'] },
+  { name: 'Sulfites', keywords: ['sulfite', 'sulphite', 'wine', 'beer', 'vinegar', 'balsamic'] },
+  { name: 'Lupin', keywords: ['lupin', 'lupine'] },
+  { name: 'Molluscs', keywords: ['mollusc', 'mollusk', 'squid', 'octopus', 'snail', 'escargot', 'clam', 'oyster', 'mussel', 'scallop'] },
+];
+
+function detectLikelyAllergens(text: string): string[] {
+  const normalized = text.toLowerCase();
+  return ALLERGEN_KEYWORDS
+    .filter((item) => item.keywords.some((keyword) => normalized.includes(keyword)))
+    .map((item) => item.name);
+}
 
 interface UploadedFile {
   id: string;
@@ -97,6 +122,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
   const [recognizedMenu, setRecognizedMenu] = useState<Menu | null>(null);
   const [recognizedSections, setRecognizedSections] = useState<RecognizedPreviewSection[]>([]);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  const [autoDetectAllergens, setAutoDetectAllergens] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasApiKey = isApiKeyConfigured();
 
@@ -110,6 +136,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
       setActiveSectionIdx(0);
       setProgressMsg('');
       setErrorMsg('');
+      setAutoDetectAllergens(false);
     }
   }, [open]);
 
@@ -154,9 +181,13 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
     setProgressMsg('');
 
     try {
-      const result = await recognizeMenuFromImages(files.map(f => f.file), (msg) => {
-        setProgressMsg(msg);
-      });
+      const result = await recognizeMenuFromImages(
+        files.map(f => f.file),
+        (msg) => {
+          setProgressMsg(msg);
+        },
+        { detectAllergens: autoDetectAllergens }
+      );
 
       if (!result) {
         throw new Error('Could not recognize menu content, please ensure the image is clear');
@@ -190,7 +221,10 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
       const section = MOCK_RECOGNIZED_SECTIONS[i];
       const dishChunks: RecognizedPreviewDish[][] = [];
       for (let j = 0; j < section.dishes.length; j++) {
-        dishChunks.push(section.dishes.slice(0, j + 1));
+        dishChunks.push(section.dishes.slice(0, j + 1).map((dish) => ({
+          ...dish,
+          allergens: autoDetectAllergens ? detectLikelyAllergens(`${dish.name} ${dish.description}`) : [],
+        })));
         await new Promise((r) => setTimeout(r, 300 + Math.random() * 400));
         setRecognizedSections((prev) => {
           const next = [...prev];
@@ -215,7 +249,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
           description: d.description,
           price: d.price,
           isVisible: true,
-          allergens: [],
+          allergens: autoDetectAllergens ? detectLikelyAllergens(`${d.name} ${d.description}`) : [],
           dietaryTags: [],
           isBestSeller: false,
         })),
@@ -354,6 +388,30 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
           </>
         )}
       </div>
+
+      <label
+        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5 transition-all ${
+          autoDetectAllergens
+            ? 'border-[#f1d36a] bg-[#fff8d8] shadow-sm'
+            : 'border-gray-200 bg-white hover:border-[#f1d36a] hover:bg-[#fffdf2]'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={autoDetectAllergens}
+          onChange={(e) => setAutoDetectAllergens(e.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-gray-300 accent-[#FFD400]"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 text-sm font-bold text-[#151526]">
+            <Sparkles className="h-4 w-4 text-[#b98900]" />
+            Auto-detect allergens with AI
+          </span>
+          <span className="mt-1 block text-xs leading-relaxed text-slate-500">
+            Reference only. The system marks likely allergens from dish names and descriptions; please review manually before publishing.
+          </span>
+        </span>
+      </label>
     </div>
   );
 
@@ -382,7 +440,9 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
       {/* Progress message */}
       <div className="text-center space-y-2">
         <p className="text-base font-semibold text-gray-900">
-          {hasApiKey ? 'AI recognizing menu...' : 'Demo mode: Generating menu data...'}
+          {hasApiKey
+            ? autoDetectAllergens ? 'AI recognizing menu and allergens...' : 'AI recognizing menu...'
+            : autoDetectAllergens ? 'Demo mode: Generating menu data and allergens...' : 'Demo mode: Generating menu data...'}
         </p>
         {progressMsg && (
           <p className="text-sm text-gray-500 animate-pulse">{progressMsg}</p>
@@ -399,6 +459,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
         {[
           { label: 'Upload image', done: true },
           { label: 'AI recognizing menu content', done: progressMsg.includes('complete') },
+          ...(autoDetectAllergens ? [{ label: 'Mark likely allergens for review', done: false }] : []),
           { label: 'Generate menu structure', done: false },
         ].map((step, i) => (
           <div key={i} className="flex items-center gap-3">
@@ -467,6 +528,15 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
                   <p className="mt-1 font-bold text-gray-900">
                     {typeof dish.price === 'number' ? `$${dish.price.toFixed(2)}` : dish.price}
                   </p>
+                  {dish.allergens && dish.allergens.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {dish.allergens.map((allergen) => (
+                        <span key={allergen} className="rounded-full bg-[#fff8d8] px-2 py-0.5 text-[11px] font-bold text-[#8a6500]">
+                          {allergen}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -484,6 +554,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
           <p className="text-sm font-medium text-green-800">Menu created successfully!</p>
           <p className="text-xs text-green-600 mt-0.5">
             {recognizedSections.length} section{recognizedSections.length > 1 ? 's' : ''}, results generated{hasApiKey ? ' by AI' : ''}
+            {autoDetectAllergens ? ' with likely allergen marks for review' : ''}
           </p>
         </div>
       </div>

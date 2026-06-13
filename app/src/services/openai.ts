@@ -35,6 +35,7 @@ interface RecognizedDish {
   name: string;
   description: string;
   price: number;
+  allergens?: string[];
 }
 
 interface RecognizedSection {
@@ -75,6 +76,50 @@ Output format:
     }
   ]
 }`;
+
+const ALLERGEN_NAMES = [
+  'Gluten',
+  'Crustaceans',
+  'Eggs',
+  'Fish',
+  'Peanuts',
+  'Soybeans',
+  'Milk',
+  'Nuts',
+  'Celery',
+  'Mustard',
+  'Sesame',
+  'Sulfites',
+  'Lupin',
+  'Molluscs',
+] as const;
+
+const ALLERGEN_DETECTION_INSTRUCTIONS = `Also identify likely EU allergens for each dish from its name and visible description.
+Use ONLY these exact allergen labels: ${ALLERGEN_NAMES.join(', ')}.
+Add an "allergens" array to every dish. If none are reasonably indicated, use [].
+This is advisory only: infer likely allergens from explicit ingredients and common dish terms, but do not invent cross-contamination warnings.
+
+Output format when allergen detection is requested:
+{
+  "sections": [
+    {
+      "name": "Appetizers",
+      "dishes": [
+        { "name": "Caesar Salad", "description": "Romaine lettuce, croutons, parmesan", "price": 12.99, "allergens": ["Gluten", "Milk"] }
+      ]
+    }
+  ]
+}`;
+
+function normalizeAllergens(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const allowed = new Map(ALLERGEN_NAMES.map((name) => [name.toLowerCase(), name]));
+  const normalized = input
+    .map((item) => String(item || '').trim().toLowerCase())
+    .map((name) => allowed.get(name))
+    .filter((name): name is typeof ALLERGEN_NAMES[number] => Boolean(name));
+  return Array.from(new Set(normalized));
+}
 
 // ---- 工具函数 ----
 
@@ -235,7 +280,8 @@ function getProviderConfig() {
 // ---- 核心 API 调用 ----
 export async function recognizeMenuFromImages(
   files: File[],
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  options: { detectAllergens?: boolean } = {}
 ): Promise<{ sections: RecognizedSection[] } | null> {
   const config = getProviderConfig();
 
@@ -294,7 +340,7 @@ export async function recognizeMenuFromImages(
     throw new Error('No valid content extracted from uploaded files');
   }
 
-  onProgress?.('AI recognizing menu...');
+  onProgress?.(options.detectAllergens ? 'AI recognizing menu and likely allergens...' : 'AI recognizing menu...');
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 120000); // 2min for PDF-heavy requests
@@ -325,12 +371,17 @@ export async function recognizeMenuFromImages(
     const bodyObj: Record<string, any> = {
       model: getRecognitionModel(),
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: options.detectAllergens ? `${SYSTEM_PROMPT}\n\n${ALLERGEN_DETECTION_INSTRUCTIONS}` : SYSTEM_PROMPT },
         {
           role: 'user',
           content: [
             ...imageContents,
-            { type: 'text', text: 'Please extract all menu items from these menu images and return structured JSON.' },
+            {
+              type: 'text',
+              text: options.detectAllergens
+                ? 'Please extract all menu items from these menu images and return structured JSON. Include likely allergens for each dish using only the allowed allergen labels.'
+                : 'Please extract all menu items from these menu images and return structured JSON.',
+            },
           ],
         },
       ],
@@ -503,7 +554,7 @@ export function convertToMenu(
           description: d.description || '',
           price: d.price || 0,
           isVisible: true,
-          allergens: [],
+          allergens: normalizeAllergens(d.allergens),
           dietaryTags: [],
           isBestSeller: false,
           translations: {}, // AI translations will be populated by TranslationPage
