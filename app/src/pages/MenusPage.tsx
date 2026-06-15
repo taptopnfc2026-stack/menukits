@@ -82,6 +82,7 @@ export default function MenusPage() {
   const handleUploadGenerate = (generatedMenu: Menu) => {
     completeStep('create-menu');
     setMenus((prev) => [generatedMenu, ...prev]);
+    setUploadOpen(false);
   };
 
   const handleDuplicate = (menu: Menu) => {

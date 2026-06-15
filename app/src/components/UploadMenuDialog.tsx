@@ -274,6 +274,7 @@ export function UploadMenuDialog({ open, onOpenChange, onGenerate }: UploadMenuD
   const handleGoToMenus = () => {
     if (recognizedMenu) {
       onGenerate(recognizedMenu);
+      onOpenChange(false);
     }
   };
 
