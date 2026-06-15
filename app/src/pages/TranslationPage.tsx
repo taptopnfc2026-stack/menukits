@@ -5,7 +5,6 @@ import { translateText } from '@/services/openai';
 import type { Menu, Dish as DishType, Section as SectionType } from '@/types';
 import {
   Globe,
-  ChevronDown,
   CheckCircle2,
   Sparkles,
   ArrowRightLeft,
@@ -16,6 +15,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface SupportedLanguage {
   code: string;
@@ -86,6 +93,9 @@ export default function TranslationPage() {
       enabled: savedLangs.length > 0 ? savedLangs.includes(l.code) : l.enabled,
     }));
   });
+  const [mainLanguage, setMainLanguage] = useState(
+    (currentMenu?.restaurantInfo?.languages?.length ? currentMenu.restaurantInfo.languages[0] : '') || 'en'
+  );
   const [isTranslating, setIsTranslating] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +111,20 @@ export default function TranslationPage() {
   const saveLanguagePrefs = (enabledLangs: SupportedLanguage[]) => {
     if (!currentMenu) return;
     const codes = enabledLangs.filter((l) => l.enabled).map((l) => l.code);
+    updateMenu(currentMenu.id, (menu) => ({
+      ...menu,
+      restaurantInfo: {
+        ...(menu.restaurantInfo || {}),
+        languages: codes,
+      },
+    }));
+  };
+
+  const handleSaveMainLanguage = () => {
+    if (!currentMenu) return;
+    const enabledCodes = languages.filter((l) => l.enabled).map((l) => l.code);
+    const codes = Array.from(new Set([mainLanguage, ...enabledCodes]));
+    setLanguages((prev) => prev.map((l) => ({ ...l, enabled: codes.includes(l.code) })));
     updateMenu(currentMenu.id, (menu) => ({
       ...menu,
       restaurantInfo: {
@@ -233,6 +257,91 @@ export default function TranslationPage() {
             </>
           )}
         </Button>
+      </div>
+
+      <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <Card className="border border-[#eee6cf] bg-white shadow-sm">
+          <CardContent className="p-6">
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Main language</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                The default language for your menu and dishes.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Main language</Label>
+                <Select value={mainLanguage} onValueChange={setMainLanguage}>
+                  <SelectTrigger className="h-11 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">
+                      <span className="mr-2">🇺🇸</span>English
+                    </SelectItem>
+                    <SelectItem value="zh">
+                      <span className="mr-2">🇨🇳</span>中文
+                    </SelectItem>
+                    <SelectItem value="es">
+                      <span className="mr-2">🇪🇸</span>Español
+                    </SelectItem>
+                    <SelectItem value="fr">
+                      <span className="mr-2">🇫🇷</span>Français
+                    </SelectItem>
+                    <SelectItem value="de">
+                      <span className="mr-2">🇩🇪</span>Deutsch
+                    </SelectItem>
+                    <SelectItem value="ja">
+                      <span className="mr-2">🇯🇵</span>日本語
+                    </SelectItem>
+                    <SelectItem value="pt">
+                      <span className="mr-2">🇵🇹</span>Português
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={handleSaveMainLanguage}
+                className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-11"
+              >
+                Save main language
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-[#eee6cf] bg-white shadow-sm">
+          <CardContent className="p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Multiple languages</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Let guests switch your menu into more languages with Premium.
+                </p>
+              </div>
+              <span className="rounded-full bg-[#fff8d8] px-2.5 py-0.5 text-xs font-semibold text-[#8a6500]">
+                Premium
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4 rounded-2xl border border-dashed border-[#eee6cf] bg-[#fffdf7] p-5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#fff8d8]">
+                <Languages className="h-6 w-6 text-[#b98900]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-gray-900">Add translated guest languages</h3>
+                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                  Add more languages and automatically translate your menu for international guests.
+                </p>
+              </div>
+              <Button className="bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold">
+                Upgrade
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Error banner */}

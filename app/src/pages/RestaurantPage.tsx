@@ -2,12 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Store,
   ImagePlus,
-  Link as LinkIcon,
-  Languages,
   Gift,
   Plus,
   HelpCircle,
-  Languages as TranslateIcon,
   PercentCircle,
   CheckCircle2,
   Trash2,
@@ -110,11 +107,6 @@ export default function RestaurantPage() {
   const [tiktok, setTiktok] = useState(existingInfo?.socialLinks?.tiktok ?? '');
   const [website, setWebsite] = useState(existingInfo?.socialLinks?.website ?? '');
 
-  // Language state
-  const [mainLanguage, setMainLanguage] = useState(
-    (existingInfo?.languages?.length ? existingInfo.languages[0] : '') || 'en'
-  );
-
   // Promotions state
   const [promotions, setPromotions] = useState<Promotion[]>(
     existingInfo?.promotions ?? []
@@ -142,7 +134,6 @@ export default function RestaurantPage() {
       if (info.socialLinks?.whatsapp !== undefined && info.socialLinks.whatsapp !== whatsapp) setWhatsapp(info.socialLinks.whatsapp);
       if (info.socialLinks?.tiktok !== undefined && info.socialLinks.tiktok !== tiktok) setTiktok(info.socialLinks.tiktok);
       if (info.socialLinks?.website !== undefined && info.socialLinks.website !== website) setWebsite(info.socialLinks.website);
-      if (info.languages?.length && info.languages[0] !== mainLanguage) setMainLanguage(info.languages[0]);
       if (info.promotions !== undefined) setPromotions(info.promotions);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,7 +151,7 @@ export default function RestaurantPage() {
         phone: phone || undefined,
         currency: currency || undefined,
         onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        languages: menu.restaurantInfo?.languages ?? [mainLanguage],
+        languages: menu.restaurantInfo?.languages ?? ['en'],
         promotions: menu.restaurantInfo?.promotions ?? [],
       },
     }));
@@ -282,19 +273,6 @@ export default function RestaurantPage() {
     showSaved('Online links');
   };
 
-  const handleSaveLanguage = () => {
-    updateMenu(menuId, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
-        languages: [mainLanguage],
-        onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        promotions: promotions,
-      },
-    }));
-    showSaved('Language');
-  };
-
   const handleSavePromotions = () => {
     updateMenu(menuId, (menu) => ({
       ...menu,
@@ -384,27 +362,6 @@ export default function RestaurantPage() {
             Restaurant details
           </TabsTrigger>
           <TabsTrigger
-            value="cover"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-gray-900 gap-2 rounded-lg border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 transition-all"
-          >
-            <ImagePlus className="h-4 w-4" />
-            Cover image
-          </TabsTrigger>
-          <TabsTrigger
-            value="links"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-gray-900 gap-2 rounded-lg border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 transition-all"
-          >
-            <LinkIcon className="h-4 w-4" />
-            Online links
-          </TabsTrigger>
-          <TabsTrigger
-            value="languages"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-gray-900 gap-2 rounded-lg border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 transition-all"
-          >
-            <Languages className="h-4 w-4" />
-            Languages
-          </TabsTrigger>
-          <TabsTrigger
             value="promotions"
             className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-gray-900 gap-2 rounded-lg border-transparent px-3 py-2.5 text-sm font-medium text-gray-500 transition-all"
           >
@@ -415,6 +372,7 @@ export default function RestaurantPage() {
 
         {/* ======== Tab 1: Restaurant details ======== */}
         <TabsContent value="details">
+          <div className="space-y-6">
           <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Restaurant details</h2>
@@ -559,22 +517,17 @@ export default function RestaurantPage() {
               </Button>
             </div>
           </div>
-        </TabsContent>
 
-        {/* ======== Tab 2: Cover image ======== */}
-        <TabsContent value="cover">
           <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Menu image</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Menu cover image</h2>
               <p className="mt-1 text-sm text-gray-500">
                 Customize your menu, upload an image of your restaurant or select a default image.
               </p>
             </div>
 
-            {/* Preview card (matches View menu drawer style) */}
             <div className="mx-auto mb-8 max-w-[300px]">
               <div className="overflow-hidden rounded-3xl shadow-xl">
-                {/* Cover Image */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden">
                   <img
                     src={customCoverImage || COVER_IMAGES[selectedImageIndex]}
@@ -582,16 +535,13 @@ export default function RestaurantPage() {
                     className="h-full w-full object-cover"
                   />
                 </div>
-                {/* Restaurant name below image */}
                 <div className="bg-white px-6 py-4 text-center">
                   <p className="text-lg font-bold text-gray-900">{restaurantName || 'My Restaurant'}</p>
                 </div>
               </div>
             </div>
 
-            {/* Image picker */}
             <div className="flex flex-wrap items-center justify-center gap-3">
-              {/* Hidden file input for custom image upload */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -599,16 +549,15 @@ export default function RestaurantPage() {
                 className="hidden"
                 onChange={handleCustomImageUpload}
               />
-              {/* Upload button / Custom image preview */}
               {customCoverImage ? (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ring-2 ring-[#FFD400]/40 border-[#F2B900] relative group`}
+                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 border-[#F2B900] ring-2 ring-[#FFD400]/40 transition-all"
                   title="Change image"
                 >
                   <img src={customCoverImage} alt="Uploaded" className="h-full w-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white text-xs font-medium">Change</span>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-xs font-medium text-white">Change</span>
                   </div>
                 </button>
               ) : (
@@ -635,17 +584,13 @@ export default function RestaurantPage() {
               ))}
             </div>
 
-            {/* Save */}
             <div className="mt-8 flex justify-center">
               <Button onClick={handleSaveCoverImage} className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                Save
+                Save cover image
               </Button>
             </div>
           </div>
-        </TabsContent>
 
-        {/* ======== Tab 3: Online links ======== */}
-        <TabsContent value="links">
           <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <div className="mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Online links</h2>
@@ -655,7 +600,6 @@ export default function RestaurantPage() {
             </div>
 
             <div className="mx-auto max-w-md space-y-5">
-                {/* Instagram */}
               <div className="space-y-1.5">
                 <Label htmlFor="insta" className="text-sm font-medium text-gray-700">
                   Instagram
@@ -672,7 +616,6 @@ export default function RestaurantPage() {
                 </div>
               </div>
 
-              {/* Facebook */}
               <div className="space-y-1.5">
                 <Label htmlFor="fb" className="text-sm font-medium text-gray-700">
                   Facebook
@@ -689,7 +632,6 @@ export default function RestaurantPage() {
                 </div>
               </div>
 
-              {/* WhatsApp */}
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   WhatsApp
@@ -703,7 +645,6 @@ export default function RestaurantPage() {
                 />
               </div>
 
-              {/* TikTok */}
               <div className="space-y-1.5">
                 <Label htmlFor="tt" className="text-sm font-medium text-gray-700">
                   TikTok
@@ -720,7 +661,6 @@ export default function RestaurantPage() {
                 </div>
               </div>
 
-              {/* Website */}
               <div className="space-y-1.5">
                 <Label htmlFor="web" className="text-sm font-medium text-gray-700">
                   Website
@@ -734,100 +674,15 @@ export default function RestaurantPage() {
                 />
               </div>
 
-              {/* Save */}
               <Button onClick={handleSaveOnlineLinks} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                Save
+                Save online links
               </Button>
             </div>
           </div>
-        </TabsContent>
-
-        {/* ======== Tab 4: Languages ======== */}
-        <TabsContent value="languages">
-          <div className="space-y-6">
-            {/* Main language card */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Main language</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  The default language for your menu and dishes.
-                </p>
-              </div>
-
-              <div className="mx-auto max-w-md space-y-5">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium text-gray-700">Main language</Label>
-                  <Select value={mainLanguage} onValueChange={setMainLanguage}>
-                    <SelectTrigger className="h-11 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">
-                        <span className="mr-2">🇺🇸</span>English
-                      </SelectItem>
-                      <SelectItem value="zh">
-                        <span className="mr-2">🇨🇳</span>中文
-                      </SelectItem>
-                      <SelectItem value="es">
-                        <span className="mr-2">🇪🇸</span>Español
-                      </SelectItem>
-                      <SelectItem value="fr">
-                        <span className="mr-2">🇫🇷</span>Français
-                      </SelectItem>
-                      <SelectItem value="de">
-                        <span className="mr-2">🇩🇪</span>Deutsch
-                      </SelectItem>
-                      <SelectItem value="ja">
-                        <span className="mr-2">🇯🇵</span>日本語
-                      </SelectItem>
-                      <SelectItem value="pt">
-                        <span className="mr-2">🇵🇹</span>Português
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button onClick={handleSaveLanguage} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                  Save
-                </Button>
-              </div>
-            </div>
-
-            {/* Multiple languages card (Premium) */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-              <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Multiple languages</h2>
-                  <span className="rounded-full bg-[#fff8d8] px-2.5 py-0.5 text-xs font-semibold text-[#8a6500]">
-                    Premium
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  Let guests switch your menu into more languages with Premium.
-                </p>
-              </div>
-
-              <div className="mx-auto max-w-md">
-                <div className="flex flex-col items-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#fff8d8]">
-                    <TranslateIcon className="h-7 w-7 text-[#b98900]" />
-                  </div>
-                  <h3 className="mb-2 text-base font-semibold text-gray-900">
-                    Add translated guest languages
-                  </h3>
-                  <p className="mx-auto mb-6 max-w-xs text-sm leading-relaxed text-gray-500">
-                    Premium lets you add more languages and automatically translate your menu for guests.
-                  </p>
-                  <Button className="bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold px-6">
-                    Upgrade to Premium
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </TabsContent>
 
-        {/* ======== Tab 5: Promotions ======== */}
+        {/* ======== Tab 2: Promotions ======== */}
         <TabsContent value="promotions">
           <div className="space-y-6">
             {/* Header card */}
