@@ -104,18 +104,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (email: string, password: string, displayName?: string) => {
       try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: displayName || email.split('@')[0],
-            },
-          },
+        const registerResponse = await fetch('/api/auth-register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, displayName }),
         });
+
+        const registerPayload = await registerResponse.json().catch(() => null);
+        if (!registerResponse.ok) {
+          return {
+            ok: false as const,
+            error: registerPayload?.error || 'Registration failed. Please try again.',
+          };
+        }
+
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           return { ok: false as const, error: error.message };
         }
+
         if (data.user) {
           setUser(toAuthUser(data.user));
           setToken(data.session?.access_token ?? null);
