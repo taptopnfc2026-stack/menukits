@@ -720,6 +720,16 @@ export default function EditorPage() {
                 />
                 Select all
               </label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#F2B900] focus:ring-2 focus:ring-[#FFD400]/25"
+              >
+                <option value="all">All Categories</option>
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
               <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={() => setNewSectionOpen(true)}>
                 <FolderPlus className="h-4 w-4" />
                 Add category
@@ -736,7 +746,7 @@ export default function EditorPage() {
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_180px_180px_auto] xl:w-[760px]">
+            <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_180px_auto] xl:w-[560px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -746,16 +756,6 @@ export default function EditorPage() {
                   className="h-10 rounded-xl pl-9"
                 />
               </div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#F2B900] focus:ring-2 focus:ring-[#FFD400]/25"
-              >
-                <option value="all">All Categories</option>
-                {categoryOptions.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
               <select
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
@@ -811,7 +811,7 @@ export default function EditorPage() {
                   <th className="w-44 px-3 py-4">Name</th>
                   <th className="w-64 px-3 py-4">Description</th>
                   <th className="w-28 px-3 py-4">Price</th>
-                  <th className="w-48 px-3 py-4">Tags</th>
+                  <th className="w-48 px-3 py-4">Categories</th>
                   <th className="w-52 px-3 py-4">
                     <div className="flex items-center gap-2">
                       <span>Allergens</span>

@@ -20,8 +20,8 @@ import { ChecklistBadge } from '@/components/ChecklistBadge';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
-  { label: 'My menus', icon: LayoutGrid, path: '/app' },
   { label: 'Restaurant', icon: Store, path: '/app/restaurant' },
+  { label: 'My menus', icon: LayoutGrid, path: '/app' },
   { label: 'Translations', icon: Languages, path: '/app/translations' },
   { label: 'QR Code', icon: QrCode, path: '/app/qr-code' },
   { label: 'Paper Menu', icon: FileText, path: '/app/paper-menu' },
