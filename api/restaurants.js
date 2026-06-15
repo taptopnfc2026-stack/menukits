@@ -124,6 +124,16 @@ async function handlePut(req, res) {
   const body = await readBody(req);
   if (!body) return err(res, 400, 'Invalid body');
 
+  // Find existing restaurant for this user first so slug checks can exclude it.
+  const existingResult = await supabaseQuery('restaurants', {
+    method: 'GET',
+    query: { select: 'id,name,slug,address,phone,website,user_id', user_id: `eq.${user.id}`, limit: '1' },
+    useServiceRole: true,
+  });
+  const currentRestaurant = existingResult.ok && Array.isArray(existingResult.data) && existingResult.data.length > 0
+    ? existingResult.data[0]
+    : null;
+
   const updateData = {};
   if (body.name !== undefined) updateData.name = body.name;
   if (body.slug !== undefined) {
@@ -142,23 +152,16 @@ async function handlePut(req, res) {
       query: { select: 'id', slug: `eq.${updateData.slug}`, limit: '1' },
       useServiceRole: true,
     });
-    if (existing.ok && Array.isArray(existing.data) && existing.data.length > 0 && existing.data[0].id !== body.id) {
+    if (existing.ok && Array.isArray(existing.data) && existing.data.length > 0 && existing.data[0].id !== currentRestaurant?.id) {
       return err(res, 409, 'This URL is already taken. Please choose another.');
     }
   }
 
-  // Find existing restaurant for this user
-  const existingResult = await supabaseQuery('restaurants', {
-    method: 'GET',
-    query: { select: 'id,name,slug,address,phone,website,user_id', user_id: `eq.${user.id}`, limit: '1' },
-    useServiceRole: true,
-  });
-
-  if (existingResult.ok && Array.isArray(existingResult.data) && existingResult.data.length > 0) {
+  if (currentRestaurant) {
     // Update existing
     const result = await supabaseQuery('restaurants', {
-      method: 'PUT',
-      query: { id: `eq.${existingResult.data[0].id}` },
+      method: 'PATCH',
+      query: { id: `eq.${currentRestaurant.id}` },
       body: updateData,
       useServiceRole: true,
     });
