@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useChecklist } from '@/contexts/ChecklistContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import type { Promotion } from '@/types';
 
@@ -69,6 +70,13 @@ const LINK_HELP = {
   },
 };
 
+type RestaurantRecord = {
+  name?: string;
+  address?: string;
+  phone?: string;
+  website?: string;
+};
+
 function LinkHelp({ title, copy }: { title: string; copy: string }) {
   return (
     <Popover>
@@ -91,7 +99,8 @@ function LinkHelp({ title, copy }: { title: string; copy: string }) {
 
 export default function RestaurantPage() {
   const { completeStep } = useChecklist();
-  const { menus, updateMenu, updateMenuAndSave } = useMenuContext();
+  const { token: authToken } = useAuth();
+  const { menus, updateMenuAndSave } = useMenuContext();
 
   /* Use the first menu as target for restaurant info */
   const menuId = menus[0]?.id || '1';
@@ -130,10 +139,34 @@ export default function RestaurantPage() {
 
   // Save success toast
   const [savedToast, setSavedToast] = useState<string | null>(null);
+  const [restaurantRecord, setRestaurantRecord] = useState<RestaurantRecord | null>(null);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [isSavingLinks, setIsSavingLinks] = useState(false);
+  const [isSavingPromotions, setIsSavingPromotions] = useState(false);
   const showSaved = (label: string) => {
     setSavedToast(label);
     setTimeout(() => setSavedToast(null), 2200);
   };
+
+  const saveRestaurantRecord = useCallback(async (payload: RestaurantRecord) => {
+    if (!authToken) return;
+
+    const response = await fetch('/api/restaurants', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'Could not save restaurant details.');
+    }
+
+    setRestaurantRecord((current) => ({ ...(current || {}), ...payload }));
+  }, [authToken]);
 
   const resizeCoverImage = useCallback((file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -166,9 +199,9 @@ export default function RestaurantPage() {
   useEffect(() => {
     const info = menus.find((m) => m.id === menuId)?.restaurantInfo;
     if (info) {
-      if (info.name !== undefined && info.name !== restaurantName) setRestaurantName(info.name);
-      if (info.address !== undefined && info.address !== address) setAddress(info.address);
-      if (info.phone !== undefined && info.phone !== phone) setPhone(info.phone);
+      if (restaurantRecord?.name === undefined && info.name !== undefined && info.name !== restaurantName) setRestaurantName(info.name);
+      if (restaurantRecord?.address === undefined && info.address !== undefined && info.address !== address) setAddress(info.address);
+      if (restaurantRecord?.phone === undefined && info.phone !== undefined && info.phone !== phone) setPhone(info.phone);
       if (info.currency !== undefined && info.currency !== currency) setCurrency(info.currency);
       if (info.coverImage !== undefined) {
         if (COVER_IMAGES.includes(info.coverImage)) {
@@ -184,30 +217,91 @@ export default function RestaurantPage() {
       if (info.socialLinks?.facebook !== undefined && info.socialLinks.facebook !== facebook) setFacebook(info.socialLinks.facebook);
       if (info.socialLinks?.whatsapp !== undefined && info.socialLinks.whatsapp !== whatsapp) setWhatsapp(info.socialLinks.whatsapp);
       if (info.socialLinks?.tiktok !== undefined && info.socialLinks.tiktok !== tiktok) setTiktok(info.socialLinks.tiktok);
-      if (info.socialLinks?.website !== undefined && info.socialLinks.website !== website) setWebsite(info.socialLinks.website);
+      if (restaurantRecord?.website === undefined && info.socialLinks?.website !== undefined && info.socialLinks.website !== website) setWebsite(info.socialLinks.website);
       if (info.promotions !== undefined) setPromotions(info.promotions);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menus]);
 
+  useEffect(() => {
+    if (!authToken) return;
+
+    let cancelled = false;
+    fetch('/api/restaurants', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const rows = await response.json().catch(() => null);
+        return Array.isArray(rows) ? rows[0] : null;
+      })
+      .then((restaurant) => {
+        if (cancelled || !restaurant) return;
+        setRestaurantRecord(restaurant);
+        if (restaurant.name) setRestaurantName(restaurant.name);
+        if (restaurant.address !== undefined) setAddress(restaurant.address || '');
+        if (restaurant.phone !== undefined) setPhone(restaurant.phone || '');
+        if (restaurant.website !== undefined) setWebsite(restaurant.website || '');
+      })
+      .catch((error) => {
+        console.warn('Failed to load restaurant details:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Load the server restaurant record once per authenticated session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
+
+  useEffect(() => {
+    if (!restaurantRecord) return;
+    if (restaurantRecord.name) setRestaurantName(restaurantRecord.name);
+    if (restaurantRecord.address !== undefined) setAddress(restaurantRecord.address || '');
+    if (restaurantRecord.phone !== undefined) setPhone(restaurantRecord.phone || '');
+    if (restaurantRecord.website !== undefined) setWebsite(restaurantRecord.website || '');
+  }, [restaurantRecord]);
+
   /* ---- Save handlers ---- */
 
-  const handleSaveDetails = () => {
-    updateMenu(menuId, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
-        name: restaurantName,
-        address: address || undefined,
-        phone: phone || undefined,
-        currency: currency || undefined,
-        onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        languages: menu.restaurantInfo?.languages ?? ['en'],
-        promotions: menu.restaurantInfo?.promotions ?? [],
-      },
-    }));
-    completeStep('business-name');
-    showSaved('Restaurant details');
+  const handleSaveDetails = async () => {
+    setIsSavingDetails(true);
+    try {
+      await saveRestaurantRecord({
+        name: restaurantName || 'My Restaurant',
+        address: address || '',
+        phone: phone || '',
+        website: website || '',
+      });
+
+      if (menus.length > 0) {
+        await updateMenuAndSave(menuId, (menu) => ({
+          ...menu,
+          restaurantInfo: {
+            ...(menu.restaurantInfo || {}),
+            name: restaurantName,
+            address: address || undefined,
+            phone: phone || undefined,
+            currency: currency || undefined,
+            socialLinks: {
+              ...(menu.restaurantInfo?.socialLinks || {}),
+              website: website || undefined,
+            },
+            onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
+            languages: menu.restaurantInfo?.languages ?? ['en'],
+            promotions: menu.restaurantInfo?.promotions ?? [],
+          },
+        }));
+      }
+
+      completeStep('business-name');
+      showSaved('Restaurant details');
+    } catch (error) {
+      console.error('Failed to save restaurant details:', error);
+      alert('Could not save restaurant details. Please try again.');
+    } finally {
+      setIsSavingDetails(false);
+    }
   };
 
   const handleCustomImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -254,37 +348,68 @@ export default function RestaurantPage() {
     showSaved('Cover image');
   };
 
-  const handleSaveOnlineLinks = () => {
-    updateMenu(menuId, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
-        socialLinks: {
-          instagram: instagram || undefined,
-          facebook: facebook || undefined,
-          whatsapp: whatsapp || undefined,
-          tiktok: tiktok || undefined,
-          website: website || undefined,
-        },
-        onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        languages: menu.restaurantInfo?.languages ?? [],
-        promotions: menu.restaurantInfo?.promotions ?? [],
-      },
-    }));
-    showSaved('Online links');
+  const handleSaveOnlineLinks = async () => {
+    setIsSavingLinks(true);
+    try {
+      await saveRestaurantRecord({
+        name: restaurantName || 'My Restaurant',
+        address: address || '',
+        phone: phone || '',
+        website: website || '',
+      });
+
+      if (menus.length > 0) {
+        await updateMenuAndSave(menuId, (menu) => ({
+          ...menu,
+          restaurantInfo: {
+            ...(menu.restaurantInfo || {}),
+            socialLinks: {
+              instagram: instagram || undefined,
+              facebook: facebook || undefined,
+              whatsapp: whatsapp || undefined,
+              tiktok: tiktok || undefined,
+              website: website || undefined,
+            },
+            onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
+            languages: menu.restaurantInfo?.languages ?? [],
+            promotions: menu.restaurantInfo?.promotions ?? [],
+          },
+        }));
+      }
+
+      showSaved('Online links');
+    } catch (error) {
+      console.error('Failed to save online links:', error);
+      alert('Could not save online links. Please try again.');
+    } finally {
+      setIsSavingLinks(false);
+    }
   };
 
-  const handleSavePromotions = () => {
-    updateMenu(menuId, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
-        onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        languages: menu.restaurantInfo?.languages ?? [],
-        promotions: promotions,
-      },
-    }));
-    showSaved('Promotions');
+  const handleSavePromotions = async () => {
+    if (menus.length === 0) {
+      alert('Please create a menu before saving promotions.');
+      return;
+    }
+
+    setIsSavingPromotions(true);
+    try {
+      await updateMenuAndSave(menuId, (menu) => ({
+        ...menu,
+        restaurantInfo: {
+          ...(menu.restaurantInfo || {}),
+          onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
+          languages: menu.restaurantInfo?.languages ?? [],
+          promotions: promotions,
+        },
+      }));
+      showSaved('Promotions');
+    } catch (error) {
+      console.error('Failed to save promotions:', error);
+      alert('Could not save promotions. Please try again.');
+    } finally {
+      setIsSavingPromotions(false);
+    }
   };
 
   /* ---- Promotion CRUD ---- */
@@ -441,8 +566,12 @@ export default function RestaurantPage() {
               </div>
 
               {/* Save */}
-              <Button onClick={handleSaveDetails} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                Save
+              <Button
+                onClick={handleSaveDetails}
+                disabled={isSavingDetails}
+                className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base disabled:opacity-70"
+              >
+                {isSavingDetails ? 'Saving...' : 'Save'}
               </Button>
             </div>
           </div>
@@ -607,8 +736,12 @@ export default function RestaurantPage() {
                 />
               </div>
 
-              <Button onClick={handleSaveOnlineLinks} className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                Save online links
+              <Button
+                onClick={handleSaveOnlineLinks}
+                disabled={isSavingLinks}
+                className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base disabled:opacity-70"
+              >
+                {isSavingLinks ? 'Saving...' : 'Save online links'}
               </Button>
             </div>
           </div>
@@ -682,9 +815,10 @@ export default function RestaurantPage() {
                 <div className="mt-8 flex justify-center">
                   <Button
                     onClick={handleSavePromotions}
-                    className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base"
+                    disabled={isSavingPromotions}
+                    className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base disabled:opacity-70"
                   >
-                    Save Promotions
+                    {isSavingPromotions ? 'Saving...' : 'Save Promotions'}
                   </Button>
                 </div>
               )}
