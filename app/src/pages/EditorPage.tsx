@@ -184,10 +184,8 @@ export default function EditorPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [selectedDishIds, setSelectedDishIds] = useState<string[]>([]);
-  const [allergenDetectStatus, setAllergenDetectStatus] = useState<'idle' | 'detecting' | 'done'>('idle');
   const [imageGenerateStatus, setImageGenerateStatus] = useState<'idle' | 'generating' | 'done'>('idle');
   const [dietaryGenerateStatus, setDietaryGenerateStatus] = useState<'idle' | 'generating' | 'done'>('idle');
-  const [rowAiStatus, setRowAiStatus] = useState<Record<string, 'image' | 'dietary' | 'done'>>({});
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const dishRows = useMemo(() => {
@@ -337,51 +335,6 @@ export default function EditorPage() {
     } catch (error: any) {
       alert(error?.message || 'Could not import this menu file.');
     }
-  };
-
-  const handleAutoDetectAllergens = () => {
-    if (dishRows.length === 0 || allergenDetectStatus === 'detecting') return;
-    setAllergenDetectStatus('detecting');
-
-    saveMenu((prev) => ({
-      ...prev,
-      updatedAt: new Date().toISOString(),
-      sections: prev.sections.map((section) => ({
-        ...section,
-        dishes: section.dishes.map((dish) => ({
-          ...dish,
-          allergens: detectLikelyAllergensForDish(dish),
-        })),
-      })),
-    }));
-
-    window.setTimeout(() => {
-      setAllergenDetectStatus('done');
-      window.setTimeout(() => setAllergenDetectStatus('idle'), 1800);
-    }, 350);
-  };
-
-  const markRowAiStatus = (dishId: string, status: 'image' | 'dietary' | 'done') => {
-    setRowAiStatus((prev) => ({ ...prev, [dishId]: status }));
-    window.setTimeout(() => {
-      setRowAiStatus((prev) => {
-        const next = { ...prev };
-        delete next[dishId];
-        return next;
-      });
-    }, status === 'done' ? 1200 : 1800);
-  };
-
-  const handleGenerateDishImage = (sectionId: string, dish: Dish) => {
-    markRowAiStatus(dish.id, 'image');
-    updateDishField(sectionId, dish.id, 'image', suggestDishImage(dish));
-    window.setTimeout(() => markRowAiStatus(dish.id, 'done'), 300);
-  };
-
-  const handleGenerateDishDietaryTags = (sectionId: string, dish: Dish) => {
-    markRowAiStatus(dish.id, 'dietary');
-    updateDishField(sectionId, dish.id, 'dietaryTags', suggestDietaryTags(dish));
-    window.setTimeout(() => markRowAiStatus(dish.id, 'done'), 300);
   };
 
   const handleAutoGenerateImages = () => {
@@ -812,27 +765,7 @@ export default function EditorPage() {
                   <th className="w-64 px-3 py-4">Description</th>
                   <th className="w-28 px-3 py-4">Price</th>
                   <th className="w-48 px-3 py-4">Categories</th>
-                  <th className="w-52 px-3 py-4">
-                    <div className="flex items-center gap-2">
-                      <span>Allergens</span>
-                      <button
-                        type="button"
-                        onClick={handleAutoDetectAllergens}
-                        disabled={dishRows.length === 0 || allergenDetectStatus === 'detecting'}
-                        aria-label="AI auto-detect allergens"
-                        title="AI auto-detect likely allergens for all dishes. Reference only; please review manually."
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#f1d36a] bg-[#fff8d8] text-[#8a6500] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFD400] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {allergenDetectStatus === 'detecting' ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : allergenDetectStatus === 'done' ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </th>
+                  <th className="w-52 px-3 py-4">Allergens</th>
                   <th className="w-56 px-3 py-4">
                     <div className="flex items-center gap-2">
                       <span>Dietary Tags</span>
@@ -878,21 +811,6 @@ export default function EditorPage() {
                             <ImageIcon className="h-5 w-5" />
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateDishImage(sectionId, dish)}
-                          title="AI generate image"
-                          aria-label={`AI generate image for ${dish.name}`}
-                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#151526] text-[#FFD400] shadow-lg transition hover:scale-105"
-                        >
-                          {rowAiStatus[dish.id] === 'image' ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : rowAiStatus[dish.id] === 'done' ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Sparkles className="h-3 w-3" />
-                          )}
-                        </button>
                       </div>
                     </td>
                     <td className="px-3 py-4">
@@ -951,8 +869,7 @@ export default function EditorPage() {
                       </div>
                     </td>
                     <td className="px-3 py-4">
-                      <div className="flex max-w-[260px] items-start gap-2">
-                        <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+                      <div className="flex max-w-[260px] flex-wrap gap-1.5">
                           {dish.dietaryTags?.length ? dish.dietaryTags.slice(0, 3).map((tag) => (
                             <span key={tag} className="rounded-lg bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
                               {tag}
@@ -963,22 +880,6 @@ export default function EditorPage() {
                           {(dish.dietaryTags?.length || 0) > 3 && (
                             <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">+{dish.dietaryTags.length - 3}</span>
                           )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateDishDietaryTags(sectionId, dish)}
-                          title="AI suggest dietary tags"
-                          aria-label={`AI suggest dietary tags for ${dish.name}`}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#f1d36a] bg-[#fff8d8] text-[#8a6500] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#FFD400]"
-                        >
-                          {rowAiStatus[dish.id] === 'dietary' ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : rowAiStatus[dish.id] === 'done' ? (
-                            <Check className="h-3.5 w-3.5" />
-                          ) : (
-                            <Sparkles className="h-3.5 w-3.5" />
-                          )}
-                        </button>
                       </div>
                     </td>
                     <td className="px-3 py-4">
