@@ -406,10 +406,10 @@ const DISH_COL_W_MM = 58;
 const ALLERGEN_COL_W_MM = (A4_LANDSCAPE_W_MM - PAGE_MARGIN_MM * 2 - DISH_COL_W_MM) / 14;
 const MATRIX_HEADER_H_MM = 16;
 const MATRIX_ROW_H_MM = 8.2;
-const LEGEND_TOP_MM = 4.5;
+const LEGEND_TOP_MM = 5.5;
 
-/* Rows per page are limited so the allergen legend remains fully printable. */
-const ROWS_PER_PAGE = 9;
+/* Keep the legend compact at the bottom so each page can hold more dishes. */
+const ROWS_PER_PAGE = 12;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, ch => {
@@ -667,8 +667,8 @@ function PaperMenuPageContent() {
     border-radius:50%;width:5.6mm;height:5.6mm;display:inline-flex;align-items:center;justify-content:center;
     font-size:5.5pt;font-weight:900;color:${style.markText};}
   
-  .legend{margin-top:${LEGEND_TOP_MM}mm;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.35mm 6mm;justify-items:stretch;background:${style.legendBg};padding:3mm 4mm;border-radius:1.5mm;border:1px solid ${style.borderColor};}
-  .legend-item{min-height:6.2mm;font-size:7.2pt;line-height:1.25;color:${style.legendText};display:block;}
+  .legend{margin-top:${LEGEND_TOP_MM}mm;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.15mm 4mm;justify-items:stretch;background:${style.legendBg};padding:2.6mm 3.4mm;border-radius:1.5mm;border:1px solid ${style.borderColor};}
+  .legend-item{min-height:5.2mm;font-size:6.55pt;line-height:1.2;color:${style.legendText};display:block;}
   .legend-item b{color:${style.headerText};font-weight:800;}
   .legend-index{font-weight:900;color:${style.headerText};}
   .num-badge{display:inline-flex;align-items:center;justify-content:center;width:5mm;height:5mm;
@@ -1149,13 +1149,13 @@ function AllergenPosterPage({
           </tbody>
         </table>
 
-        {/* Legend — 2-column grid for clear layout */}
+        {/* Legend — compact 3-column grid so the matrix can fit more dish rows. */}
         <div data-allergen-legend style={{
           marginTop: `${LEGEND_TOP_MM * scale}mm`,
-          display: 'grid', gridTemplateColumns: `repeat(2, 1fr)`,
-          gap: `${1.35 * scale}mm ${6 * scale}mm`,
+          display: 'grid', gridTemplateColumns: `repeat(3, 1fr)`,
+          gap: `${1.15 * scale}mm ${4 * scale}mm`,
           justifyContent: 'stretch', background: style.legendBg,
-          padding: `${3 * scale}mm ${4 * scale}mm`,
+          padding: `${2.6 * scale}mm ${3.4 * scale}mm`,
           borderRadius: `${1.5 * scale}mm`, border: `1px solid ${style.borderColor}`,
           alignItems: 'start',
         }}>
@@ -1164,10 +1164,10 @@ function AllergenPosterPage({
             const desc = (displayTr as any)[ag.descKey] || '';
             return (
               <div key={ag.id} style={{
-                minHeight: `${6.2 * scale}mm`,
-                fontSize: `${7.2 * scale}px`, color: style.legendText,
+                minHeight: `${5.2 * scale}mm`,
+                fontSize: `${6.55 * scale}px`, color: style.legendText,
                 display: 'block',
-                lineHeight: 1.25,
+                lineHeight: 1.2,
               }}>
                 <span style={{ color: style.headerText, fontWeight: 900 }}>{ag.number}. </span>
                 <b style={{ color: style.headerText, fontWeight: 800 }}>{name}</b>: {desc}
