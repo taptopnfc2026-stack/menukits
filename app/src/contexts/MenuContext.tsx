@@ -11,6 +11,7 @@ interface MenuContextType {
   setMenus: React.Dispatch<React.SetStateAction<Menu[]>>;
   getMenuById: (id: string) => Menu | undefined;
   updateMenu: (id: string, updater: (menu: Menu) => Menu) => void;
+  updateMenuAndSave: (id: string, updater: (menu: Menu) => Menu) => Promise<void>;
   isLoading: boolean;
   saveToCloud: () => Promise<void>;
 }
@@ -169,6 +170,28 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateMenuAndSave = useCallback(
+    async (id: string, updater: (menu: Menu) => Menu) => {
+      const nextMenus = menus.map((menu) => (menu.id === id ? updater(menu) : menu));
+      setMenus(nextMenus);
+      saveToStorage(nextMenus);
+
+      const result = await saveMenusToCloud(nextMenus, authToken, cloudMenuIds.current);
+      if (!result) return;
+
+      const remaps = result.remaps;
+      cloudMenuIds.current = nextCloudIdSet(nextMenus, cloudMenuIds.current, result.deletedIds, remaps);
+
+      if (Object.keys(remaps).length > 0) {
+        skipNextAutoSave.current = true;
+        setMenus((prev) =>
+          prev.map((m) => (remaps[m.id] ? { ...m, id: remaps[m.id] } : m))
+        );
+      }
+    },
+    [authToken, menus]
+  );
+
   /** Explicit save trigger for critical operations */
   const saveToCloud = useCallback(async () => {
     const result = await saveMenusToCloud(menus, authToken, cloudMenuIds.current);
@@ -186,7 +209,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
   }, [menus, authToken]);
 
   return (
-    <MenuContext.Provider value={{ menus, setMenus, getMenuById, updateMenu, isLoading, saveToCloud }}>
+    <MenuContext.Provider value={{ menus, setMenus, getMenuById, updateMenu, updateMenuAndSave, isLoading, saveToCloud }}>
       {children}
     </MenuContext.Provider>
   );

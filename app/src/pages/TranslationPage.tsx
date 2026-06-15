@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { translateText } from '@/services/openai';
@@ -82,7 +82,7 @@ function countTotalItems(menu: Menu | undefined): number {
 export default function TranslationPage() {
   const { completeStep } = useChecklist();
   completeStep('menu-language');
-  const { menus, updateMenu } = useMenuContext();
+  const { menus, updateMenuAndSave } = useMenuContext();
   const currentMenu = menus[0]; // active menu
 
   const [languages, setLanguages] = useState<SupportedLanguage[]>(() => {
@@ -99,33 +99,52 @@ export default function TranslationPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [autoTranslate, setAutoTranslate] = useState(true);
+  const [autoTranslate, setAutoTranslate] = useState(() => {
+    try {
+      return localStorage.getItem('menukits-auto-translate-new-dishes') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const autoTranslateRunKey = useRef('');
+
+  useEffect(() => {
+    const savedLangs = currentMenu?.restaurantInfo?.languages || [];
+    setLanguages(
+      LANGUAGES.map((l) => ({
+        ...l,
+        enabled: savedLangs.length > 0 ? savedLangs.includes(l.code) : l.enabled,
+      }))
+    );
+    setMainLanguage((savedLangs.length ? savedLangs[0] : '') || 'en');
+  }, [currentMenu?.id, currentMenu?.restaurantInfo?.languages]);
 
   const toggleLanguage = (code: string) => {
-    setLanguages((prev) =>
-      prev.map((l) => (l.code === code ? { ...l, enabled: !l.enabled } : l))
-    );
-  };
-
-  /** Persist language toggles to menu's restaurantInfo */
-  const saveLanguagePrefs = (enabledLangs: SupportedLanguage[]) => {
     if (!currentMenu) return;
-    const codes = enabledLangs.filter((l) => l.enabled).map((l) => l.code);
-    updateMenu(currentMenu.id, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
-        languages: codes,
-      },
-    }));
+    setLanguages((prev) => {
+      const next = prev.map((l) => {
+        if (l.code !== code) return l;
+        if (l.code === mainLanguage) return { ...l, enabled: true };
+        return { ...l, enabled: !l.enabled };
+      });
+      const codes = next.filter((l) => l.enabled).map((l) => l.code);
+      void updateMenuAndSave(currentMenu.id, (menu) => ({
+        ...menu,
+        restaurantInfo: {
+          ...(menu.restaurantInfo || {}),
+          languages: codes.length ? codes : [mainLanguage],
+        },
+      }));
+      return next;
+    });
   };
 
-  const handleSaveMainLanguage = () => {
+  const handleSaveMainLanguage = async () => {
     if (!currentMenu) return;
     const enabledCodes = languages.filter((l) => l.enabled).map((l) => l.code);
     const codes = Array.from(new Set([mainLanguage, ...enabledCodes]));
     setLanguages((prev) => prev.map((l) => ({ ...l, enabled: codes.includes(l.code) })));
-    updateMenu(currentMenu.id, (menu) => ({
+    await updateMenuAndSave(currentMenu.id, (menu) => ({
       ...menu,
       restaurantInfo: {
         ...(menu.restaurantInfo || {}),
@@ -173,29 +192,36 @@ export default function TranslationPage() {
 
     try {
       // Clone menu sections with translations populated
-      const newSections = currentMenu.sections.map((sec) => ({ ...sec }));
+      const newSections = currentMenu.sections.map((sec) => ({
+        ...sec,
+        translations: { ...(sec.translations || {}) },
+        dishes: sec.dishes.map((dish) => ({
+          ...dish,
+          translations: { ...(dish.translations || {}) },
+        })),
+      }));
       let completed = 0;
+      let failed = 0;
 
       for (const item of items) {
         for (const lang of enabledLangs) {
           try {
-            const translated = await translateText(item.text, 'en', lang.code);
+            const translated = await translateText(item.text, mainLanguage, lang.code);
 
             // Apply translation to the cloned structure
             if (item.type === 'section') {
               const sec = newSections[item.sectionIndex];
-              if (!sec.translations) sec.translations = {};
               sec.translations[lang.code] = translated;
             } else {
               const sec = newSections[item.sectionIndex];
               const dish = { ...sec.dishes[item.dishIndex!] };
-              if (!dish.translations) dish.translations = {};
               if (!dish.translations[lang.code]) dish.translations[lang.code] = {};
               dish.translations[lang.code][item.field!] = translated;
               sec.dishes = [...sec.dishes];
               sec.dishes[item.dishIndex!] = dish;
             }
           } catch (err) {
+            failed++;
             console.warn(`Translation failed: "${item.text}" → ${lang.code}`, err);
             // Continue with other items on failure
           }
@@ -209,14 +235,20 @@ export default function TranslationPage() {
       }
 
       // Save updated menu with translations
-      updateMenu(currentMenu.id, (menu) => ({
+      const enabledCodes = languages.filter((l) => l.enabled).map((l) => l.code);
+      await updateMenuAndSave(currentMenu.id, (menu) => ({
         ...menu,
         sections: newSections,
+        restaurantInfo: {
+          ...(menu.restaurantInfo || {}),
+          languages: enabledCodes.length ? enabledCodes : [mainLanguage],
+        },
         updatedAt: new Date().toISOString(),
       }));
 
-      // Also save language preferences
-      saveLanguagePrefs(languages);
+      if (failed > 0) {
+        setError(`${failed} translation task${failed === 1 ? '' : 's'} failed. Completed translations were saved; please try again for the remaining items.`);
+      }
     } catch (err) {
       console.error('Translation batch error:', err);
       setError(err instanceof Error ? err.message : 'Translation failed. Please try again.');
@@ -225,9 +257,30 @@ export default function TranslationPage() {
     }
   };
 
+  const handleAutoTranslateChange = (checked: boolean) => {
+    setAutoTranslate(checked);
+    try {
+      localStorage.setItem('menukits-auto-translate-new-dishes', String(checked));
+    } catch {}
+    if (checked && !isTranslating) {
+      void handleBulkTranslate();
+    }
+  };
+
   const enabledCount = languages.filter((l) => l.enabled).length;
   const translationCount = useMemo(() => countTranslations(currentMenu), [currentMenu]);
   const totalItems = useMemo(() => countTotalItems(currentMenu), [currentMenu]);
+
+  useEffect(() => {
+    const targetLangs = languages.filter((l) => l.enabled && l.code !== mainLanguage);
+    if (!autoTranslate || isTranslating || !currentMenu || totalItems === 0 || targetLangs.length === 0) return;
+    if (translationCount > 0) return;
+
+    const runKey = `${currentMenu.id}:${totalItems}:${targetLangs.map((l) => l.code).join(',')}`;
+    if (autoTranslateRunKey.current === runKey) return;
+    autoTranslateRunKey.current = runKey;
+    void handleBulkTranslate();
+  }, [autoTranslate, currentMenu, isTranslating, languages, mainLanguage, totalItems, translationCount]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -388,7 +441,7 @@ export default function TranslationPage() {
           </div>
           <Switch
             checked={autoTranslate}
-            onCheckedChange={setAutoTranslate}
+            onCheckedChange={handleAutoTranslateChange}
             className="data-[state=checked]:bg-[#151526]"
           />
         </CardContent>

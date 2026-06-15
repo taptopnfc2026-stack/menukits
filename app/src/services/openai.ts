@@ -469,9 +469,8 @@ export async function translateText(
   targetLang: string
 ): Promise<string> {
   const settings = loadAISettings();
-  const config = getProviderConfig();
 
-  if (!hasTranslationKey(settings)) {
+  if (isDev && !hasTranslationKey(settings)) {
     throw new Error('Translation provider not configured. Please set API keys in Settings.');
   }
 

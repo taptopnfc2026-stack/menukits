@@ -18,8 +18,6 @@ import {
   Leaf,
   Star,
   Link2,
-  ExternalLink,
-  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +32,6 @@ import {
 } from '@/components/ui/select';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
-import { useAuth } from '@/contexts/AuthContext';
 import type { Promotion } from '@/types';
 
 const COVER_IMAGES = [
@@ -47,7 +44,6 @@ const COVER_IMAGES = [
 export default function RestaurantPage() {
   const { completeStep } = useChecklist();
   const { menus, updateMenu } = useMenuContext();
-  const { token: authToken } = useAuth();
 
   /* Use the first menu as target for restaurant info */
   const menuId = menus[0]?.id || '1';
@@ -58,36 +54,6 @@ export default function RestaurantPage() {
   const [address, setAddress] = useState(existingInfo?.address ?? '');
   const [phone, setPhone] = useState(existingInfo?.phone ?? '');
   const [currency, setCurrency] = useState(existingInfo?.currency ?? '');
-
-  // Slug state (for custom URL)
-  const [slug, setSlug] = useState('');
-  const [slugSaving, setSlugSaving] = useState(false);
-  const [slugSaved, setSlugSaved] = useState(false);
-  const [slugError, setSlugError] = useState('');
-
-  // Load restaurant slug from cloud
-  useEffect(() => {
-    async function loadRestaurant() {
-      try {
-        if (!authToken) return;
-        const res = await fetch('/api/restaurants', {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        if (res.ok) {
-          const rows = await res.json();
-          if (Array.isArray(rows) && rows.length > 0 && rows[0].slug) {
-            setSlug(rows[0].slug);
-          } else if (restaurantName && restaurantName !== 'My Restaurant') {
-            // Auto-generate from name
-            setSlug(restaurantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
-          }
-        }
-      } catch { /* ignore */ }
-    }
-    loadRestaurant();
-    // Load once after auth is ready; avoid resetting the URL field while the user edits restaurant details.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken]);
 
   // Cover image state
   const [selectedImageIndex, setSelectedImageIndex] = useState(
@@ -157,52 +123,6 @@ export default function RestaurantPage() {
     }));
     completeStep('business-name');
     showSaved('Restaurant details');
-  };
-
-  // Save slug to cloud (restaurants table)
-  const handleSaveSlug = async () => {
-    if (!slug.trim()) { setSlugError('URL slug is required'); return; }
-    // Validate format
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$|^[a-z0-9]{1,}$/i.test(slug.trim())) {
-      setSlugError('Only letters, numbers, and hyphens allowed');
-      return;
-    }
-    
-    setSlugSaving(true);
-    setSlugError('');
-    try {
-      if (!authToken) throw new Error('Not authenticated');
-      
-      const res = await fetch('/api/restaurants', {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({ name: restaurantName, slug: slug.trim().toLowerCase() }),
-      });
-      if (res.ok) {
-        setSlugSaved(true);
-        setTimeout(() => setSlugSaved(false), 2500);
-        showSaved('Menu URL');
-      } else {
-        const err = await res.json();
-        setSlugError(err.error || 'Failed to update URL');
-      }
-    } catch (e) {
-      setSlugError('Network error. Please try again.');
-    }
-    setSlugSaving(false);
-  };
-
-  /** Auto-generate slug from name */
-  const generateSlugFromName = () => {
-    if (!restaurantName.trim()) return;
-    const generated = restaurantName.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-    setSlug(generated);
-    setSlugError('');
   };
 
   const handleCustomImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -437,78 +357,6 @@ export default function RestaurantPage() {
                     <SelectItem value="JPY">JPY (¥)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Custom URL Slug */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="slug" className="text-sm font-medium text-gray-700">
-                    Menu URL
-                  </Label>
-                  {slug && (
-                    <a
-                      href={`/hub/${slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-xs font-bold text-[#8a6500] hover:text-[#151526] transition-colors"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Preview
-                    </a>
-                  )}
-                </div>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400 select-none whitespace-nowrap overflow-hidden max-[340px]:hidden sm:inline-flex">
-                    menukits.eu/hub/
-                  </span>
-                  <Input
-                    id="slug"
-                    value={slug}
-                    onChange={(e) => {
-                      setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));
-                      setSlugError('');
-                      setSlugSaved(false);
-                    }}
-                    placeholder="la-petite-cafe"
-                    className={`h-11 pl-[115px] sm:pl-[130px] ${slugError ? 'border-red-300 focus:border-red-500' : ''}`}
-                  />
-                </div>
-                
-                {/* URL preview + actions */}
-                {slug && !slugError && (
-                  <p className="text-xs text-gray-500 mt-1 break-all">
-                    <span className="font-medium text-gray-700">{window?.location ? window.location.origin : 'menukits.eu'}</span>/hub/<span className="font-mono text-[#8a6500] font-semibold">{slug}</span>
-                  </p>
-                )}
-
-                {slugError && (
-                  <p className="flex items-center gap-1 text-xs text-red-600 mt-1">
-                    <AlertCircle className="h-3 w-3" />{slugError}
-                  </p>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={generateSlugFromName}
-                    className="text-xs h-8"
-                    disabled={!restaurantName.trim()}
-                  >
-                    Auto-generate
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={slugSaved ? "outline" : "default"}
-                    size="sm"
-                    onClick={handleSaveSlug}
-                    disabled={slugSaving || !slug.trim()}
-                    className={`text-xs h-8 flex-1 ${slugSaved ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-50' : 'bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold'}`}
-                  >
-                    {slugSaving ? 'Saving...' : (slugSaved ? 'URL saved!' : 'Save URL')}
-                  </Button>
-                </div>
               </div>
 
               {/* Save */}
