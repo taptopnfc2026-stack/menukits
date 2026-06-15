@@ -30,6 +30,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import type { Promotion } from '@/types';
@@ -40,6 +45,49 @@ const COVER_IMAGES = [
   'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop',
   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop',
 ];
+
+const LINK_HELP = {
+  instagram: {
+    title: 'Instagram',
+    copy: 'Add your Instagram username so guests can open your restaurant profile from the menu. You can find it at the top of your Instagram profile, for example @menukits.',
+  },
+  facebook: {
+    title: 'Facebook',
+    copy: 'Add your Facebook page name or handle. Open your restaurant Facebook page and copy the name after facebook.com, or enter the page handle shown under the page title.',
+  },
+  whatsapp: {
+    title: 'WhatsApp',
+    copy: 'Add the phone number connected to WhatsApp Business, including country code. Guests can tap it to start a chat with your restaurant.',
+  },
+  tiktok: {
+    title: 'TikTok',
+    copy: 'Add your TikTok username so guests can visit your short video profile. You can find it on your TikTok profile, for example @menukits.',
+  },
+  website: {
+    title: 'Website',
+    copy: 'Add your official website, booking page, delivery page, or Google business link. Copy the full URL from your browser, starting with https://.',
+  },
+};
+
+function LinkHelp({ title, copy }: { title: string; copy: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`What is ${title}?`}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-gray-400 transition hover:bg-[#fff8d8] hover:text-[#8a6500]"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 rounded-xl border-[#eee6cf] bg-white p-4 text-sm shadow-lg">
+        <p className="font-bold text-[#151526]">{title}</p>
+        <p className="mt-1.5 leading-5 text-slate-600">{copy}</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function RestaurantPage() {
   const { completeStep } = useChecklist();
@@ -482,8 +530,9 @@ export default function RestaurantPage() {
 
             <div className="mx-auto max-w-md space-y-5">
               <div className="space-y-1.5">
-                <Label htmlFor="insta" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="insta" className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   Instagram
+                  <LinkHelp {...LINK_HELP.instagram} />
                 </Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
@@ -498,8 +547,9 @@ export default function RestaurantPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="fb" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="fb" className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   Facebook
+                  <LinkHelp {...LINK_HELP.facebook} />
                 </Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
@@ -516,7 +566,7 @@ export default function RestaurantPage() {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   WhatsApp
-                  <HelpCircle className="h-3.5 w-3.5 text-gray-400" />
+                  <LinkHelp {...LINK_HELP.whatsapp} />
                 </label>
                 <Input
                   value={whatsapp}
@@ -527,8 +577,9 @@ export default function RestaurantPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="tt" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="tt" className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   TikTok
+                  <LinkHelp {...LINK_HELP.tiktok} />
                 </Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
@@ -543,8 +594,9 @@ export default function RestaurantPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="web" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="web" className="flex items-center gap-1 text-sm font-medium text-gray-700">
                   Website
+                  <LinkHelp {...LINK_HELP.website} />
                 </Label>
                 <Input
                   id="web"
