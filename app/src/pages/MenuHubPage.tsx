@@ -30,6 +30,9 @@ export default function MenuHubPage() {
   }, []);
 
   const visibleMenus = menus.filter((m) => m.isVisible !== false);
+  const restaurantInfo = visibleMenus.find((menu) => menu.restaurantInfo)?.restaurantInfo;
+  const coverImage = restaurantInfo?.coverImage || COVER_IMAGE;
+  const restaurantName = restaurantInfo?.name || RESTAURANT_NAME;
 
   if (isLoading) {
     return (
@@ -67,7 +70,7 @@ export default function MenuHubPage() {
         {/* Cover image */}
         <div className="relative aspect-[16/10] w-full overflow-hidden">
           <img
-            src={COVER_IMAGE}
+            src={coverImage}
             alt="Cover"
             className="h-full w-full object-cover"
           />
@@ -84,7 +87,7 @@ export default function MenuHubPage() {
         {/* Restaurant name + menu cards */}
         <div className="bg-white px-5 py-5">
           <h1 className="text-center text-xl font-bold text-gray-900">
-            {RESTAURANT_NAME}
+            {restaurantName}
           </h1>
 
           <div className="mt-4 space-y-2.5">

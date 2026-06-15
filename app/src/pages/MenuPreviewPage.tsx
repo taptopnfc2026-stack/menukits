@@ -321,6 +321,8 @@ function MenuPreviewContent() {
   const visibleSections = menu.sections.filter((s) =>
     s.dishes.some((d) => d.isVisible)
   );
+  const restaurantName = menu.restaurantInfo?.name?.trim() || menu.title || RESTAURANT_NAME;
+  const coverImage = menu.restaurantInfo?.coverImage?.trim() || COVER_IMAGE;
 
   /* ========== Main Render ========== */
   return (
@@ -331,7 +333,7 @@ function MenuPreviewContent() {
 
         {/* Cover Image Section */}
         <div className="relative w-full aspect-[4/3] overflow-hidden shrink-0">
-          <img src={COVER_IMAGE} alt="Restaurant cover" className="h-full w-full object-cover" />
+          <img src={coverImage} alt="Restaurant cover" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
           {/* Language Switcher — prominent button */}
@@ -341,7 +343,7 @@ function MenuPreviewContent() {
 
           {/* Restaurant info on cover */}
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <h1 className="text-[26px] font-bold text-white drop-shadow-lg leading-tight">{tSection(menu.title).display}</h1>
+            <h1 className="text-[26px] font-bold text-white drop-shadow-lg leading-tight">{restaurantName}</h1>
             <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/85 font-medium">
               <span className="inline-block h-2 w-2 rounded-full bg-green-400"></span>
               {t('openToday')}

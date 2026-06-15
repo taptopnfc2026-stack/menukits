@@ -71,9 +71,13 @@ export default function PublicRestaurantPage() {
     );
   }
 
-  // Cover image — use restaurant's or fallback
-  const coverSrc = restaurant.cover_image_url ||
+  const restaurantInfo = visibleMenus.find((menu) => menu.restaurantInfo)?.restaurantInfo;
+
+  // Cover image — prefer the menu cover configured in Restaurant settings.
+  const coverSrc = restaurantInfo?.coverImage ||
+    restaurant.cover_image_url ||
     'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop';
+  const displayName = restaurantInfo?.name || restaurant.name;
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-start justify-center px-4 py-6 sm:py-12">
@@ -84,7 +88,7 @@ export default function PublicRestaurantPage() {
         <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[16/9]">
           <img
             src={coverSrc}
-            alt={restaurant.name}
+            alt={displayName}
             className="h-full w-full object-cover"
           />
           {/* Gradient overlay for text readability on any image */}
@@ -102,7 +106,7 @@ export default function PublicRestaurantPage() {
           {/* Restaurant name overlay at bottom of cover */}
           <div className="absolute bottom-0 left-0 right-0 p-5 pb-3">
             <h1 className="text-xl sm:text-2xl font-bold text-white drop-shadow-lg leading-tight">
-              {restaurant.name}
+              {displayName}
             </h1>
             {(restaurant.address || restaurant.phone) && (
               <p className="mt-1 text-xs sm:text-sm text-white/80 drop-shadow">

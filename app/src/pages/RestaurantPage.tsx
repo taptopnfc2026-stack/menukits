@@ -43,7 +43,7 @@ const COVER_IMAGES = [
 
 export default function RestaurantPage() {
   const { completeStep } = useChecklist();
-  const { menus, updateMenu } = useMenuContext();
+  const { menus, updateMenu, updateMenuAndSave } = useMenuContext();
 
   /* Use the first menu as target for restaurant info */
   const menuId = menus[0]?.id || '1';
@@ -87,6 +87,33 @@ export default function RestaurantPage() {
     setTimeout(() => setSavedToast(null), 2200);
   };
 
+  const resizeCoverImage = useCallback((file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image.'));
+      img.onload = () => {
+        const maxWidth = 1400;
+        const scale = Math.min(1, maxWidth / img.width);
+        const width = Math.round(img.width * scale);
+        const height = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Image processing is not available.'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.84));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  }), []);
+
   /* Sync local state when menus data changes from elsewhere */
   useEffect(() => {
     const info = menus.find((m) => m.id === menuId)?.restaurantInfo;
@@ -95,6 +122,16 @@ export default function RestaurantPage() {
       if (info.address !== undefined && info.address !== address) setAddress(info.address);
       if (info.phone !== undefined && info.phone !== phone) setPhone(info.phone);
       if (info.currency !== undefined && info.currency !== currency) setCurrency(info.currency);
+      if (info.coverImage !== undefined) {
+        if (COVER_IMAGES.includes(info.coverImage)) {
+          const nextIndex = COVER_IMAGES.indexOf(info.coverImage);
+          if (nextIndex !== selectedImageIndex) setSelectedImageIndex(nextIndex);
+          if (customCoverImage) setCustomCoverImage(null);
+        } else if (info.coverImage !== customCoverImage) {
+          setCustomCoverImage(info.coverImage);
+          if (selectedImageIndex !== -1) setSelectedImageIndex(-1);
+        }
+      }
       if (info.socialLinks?.instagram !== undefined && info.socialLinks.instagram !== instagram) setInstagram(info.socialLinks.instagram);
       if (info.socialLinks?.facebook !== undefined && info.socialLinks.facebook !== facebook) setFacebook(info.socialLinks.facebook);
       if (info.socialLinks?.whatsapp !== undefined && info.socialLinks.whatsapp !== whatsapp) setWhatsapp(info.socialLinks.whatsapp);
@@ -141,24 +178,20 @@ export default function RestaurantPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    resizeCoverImage(file).then((dataUrl) => {
       setCustomCoverImage(dataUrl);
       setSelectedImageIndex(-1); // Deselect default images
-    };
-    reader.onerror = () => {
-      alert('Failed to read image. Please try another file.');
-    };
-    reader.readAsDataURL(file);
+    }).catch(() => {
+      alert('Failed to process image. Please try another file.');
+    });
 
     // Reset input so same file can be re-selected
     e.target.value = '';
-  }, []);
+  }, [resizeCoverImage]);
 
-  const handleSaveCoverImage = () => {
+  const handleSaveCoverImage = async () => {
     const coverSrc = customCoverImage || COVER_IMAGES[selectedImageIndex];
-    updateMenu(menuId, (menu) => ({
+    await updateMenuAndSave(menuId, (menu) => ({
       ...menu,
       restaurantInfo: {
         ...(menu.restaurantInfo || {}),
