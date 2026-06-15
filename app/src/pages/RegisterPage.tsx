@@ -31,7 +31,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (!isLoading && isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app/restaurant" replace />;
   }
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -51,7 +51,7 @@ export default function RegisterPage() {
       setError(result.error);
       return;
     }
-    navigate('/app', { replace: true });
+    navigate('/app/restaurant', { replace: true });
   };
 
   return (
