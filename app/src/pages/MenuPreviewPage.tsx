@@ -323,6 +323,7 @@ function MenuPreviewContent() {
   );
   const restaurantName = menu.restaurantInfo?.name?.trim() || menu.title || RESTAURANT_NAME;
   const coverImage = menu.restaurantInfo?.coverImage?.trim() || COVER_IMAGE;
+  const logoImage = menu.restaurantInfo?.logoImage?.trim();
 
   /* ========== Main Render ========== */
   return (
@@ -342,12 +343,21 @@ function MenuPreviewContent() {
           </div>
 
           {/* Restaurant info on cover */}
-          <div className="absolute bottom-0 left-0 right-0 p-6">
-            <h1 className="text-[26px] font-bold text-white drop-shadow-lg leading-tight">{restaurantName}</h1>
-            <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/85 font-medium">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-400"></span>
-              {t('openToday')}
-            </p>
+          <div className="absolute bottom-0 left-0 right-0 flex items-end gap-3 p-6">
+            {logoImage && (
+              <img
+                src={logoImage}
+                alt={`${restaurantName} logo`}
+                className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white/80 bg-white object-cover shadow-lg"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[26px] font-bold text-white drop-shadow-lg leading-tight">{restaurantName}</h1>
+              <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/85 font-medium">
+                <span className="inline-block h-2 w-2 rounded-full bg-green-400"></span>
+                {t('openToday')}
+              </p>
+            </div>
           </div>
         </div>
 

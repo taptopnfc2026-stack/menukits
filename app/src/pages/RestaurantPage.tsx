@@ -97,6 +97,25 @@ type RestaurantRecord = {
 };
 
 const normalizeHandle = (value: string) => value.trim().replace(/^@+/, '');
+const SAVE_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = SAVE_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out. Please check your connection and try again.`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 function LinkHelp({ title, copy }: { title: string; copy: string }) {
   return (
@@ -147,7 +166,9 @@ export default function RestaurantPage() {
   const [customCoverImage, setCustomCoverImage] = useState<string | null>(
     existingInfo?.coverImage && !COVER_IMAGES.includes(existingInfo.coverImage) ? existingInfo.coverImage : null
   );
+  const [customLogoImage, setCustomLogoImage] = useState<string | null>(existingInfo?.logoImage ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Online links state
   const [instagram, setInstagram] = useState(existingInfo?.socialLinks?.instagram ?? '');
@@ -180,15 +201,23 @@ export default function RestaurantPage() {
 
   const saveRestaurantRecord = useCallback(async (payload: RestaurantRecord) => {
     if (!authToken) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
 
-    const response = await fetch('/api/restaurants', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    let response: Response;
+    try {
+      response = await fetch('/api/restaurants', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timer);
+    }
 
     if (!response.ok) {
       const message = await response.text().catch(() => '');
@@ -198,14 +227,13 @@ export default function RestaurantPage() {
     setRestaurantRecord((current) => ({ ...(current || {}), ...payload }));
   }, [authToken]);
 
-  const resizeCoverImage = useCallback((file: File) => new Promise<string>((resolve, reject) => {
+  const resizeImage = useCallback((file: File, maxWidth = 1400, quality = 0.84) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Failed to read image.'));
     reader.onload = () => {
       const img = new Image();
       img.onerror = () => reject(new Error('Failed to load image.'));
       img.onload = () => {
-        const maxWidth = 1400;
         const scale = Math.min(1, maxWidth / img.width);
         const width = Math.round(img.width * scale);
         const height = Math.round(img.height * scale);
@@ -218,7 +246,7 @@ export default function RestaurantPage() {
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.84));
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result as string;
     };
@@ -248,6 +276,7 @@ export default function RestaurantPage() {
           if (selectedImageIndex !== -1) setSelectedImageIndex(-1);
         }
       }
+      if (info.logoImage !== undefined && info.logoImage !== customLogoImage) setCustomLogoImage(info.logoImage || null);
       if (info.socialLinks?.instagram !== undefined && info.socialLinks.instagram !== instagram) setInstagram(info.socialLinks.instagram);
       if (info.socialLinks?.facebook !== undefined && info.socialLinks.facebook !== facebook) setFacebook(info.socialLinks.facebook);
       if (info.socialLinks?.whatsapp !== undefined && info.socialLinks.whatsapp !== whatsapp) setWhatsapp(info.socialLinks.whatsapp);
@@ -314,6 +343,7 @@ export default function RestaurantPage() {
     email: email || undefined,
     currency: currency || undefined,
     coverImage: customCoverImage || COVER_IMAGES[selectedImageIndex],
+    logoImage: customLogoImage || undefined,
     socialLinks: {
       ...(currentInfo?.socialLinks || {}),
       instagram: normalizeHandle(instagram) || undefined,
@@ -340,6 +370,7 @@ export default function RestaurantPage() {
     email,
     currency,
     customCoverImage,
+    customLogoImage,
     selectedImageIndex,
     instagram,
     facebook,
@@ -363,10 +394,13 @@ export default function RestaurantPage() {
       });
 
       if (menus.length > 0) {
-        await updateMenuAndSave(menuId, (menu) => ({
-          ...menu,
-          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
-        }));
+        await withTimeout(
+          updateMenuAndSave(menuId, (menu) => ({
+            ...menu,
+            restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
+          })),
+          'Menu profile save'
+        );
       }
 
       completeStep('business-name');
@@ -395,7 +429,7 @@ export default function RestaurantPage() {
       return;
     }
 
-    resizeCoverImage(file).then((dataUrl) => {
+    resizeImage(file, 1400, 0.84).then((dataUrl) => {
       setCustomCoverImage(dataUrl);
       setSelectedImageIndex(-1); // Deselect default images
     }).catch(() => {
@@ -404,17 +438,43 @@ export default function RestaurantPage() {
 
     // Reset input so same file can be re-selected
     e.target.value = '';
-  }, [resizeCoverImage]);
+  }, [resizeImage]);
+
+  const handleLogoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPG, WEBP, etc.)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Logo is too large. Maximum size is 5MB.');
+      return;
+    }
+
+    resizeImage(file, 600, 0.9).then((dataUrl) => {
+      setCustomLogoImage(dataUrl);
+    }).catch(() => {
+      alert('Failed to process logo. Please try another file.');
+    });
+
+    e.target.value = '';
+  }, [resizeImage]);
 
   const handleSaveCoverImage = async () => {
     const coverSrc = customCoverImage || COVER_IMAGES[selectedImageIndex];
-    await updateMenuAndSave(menuId, (menu) => ({
-      ...menu,
-      restaurantInfo: {
-        ...buildRestaurantInfo(menu.restaurantInfo),
-        coverImage: coverSrc,
-      },
-    }));
+    await withTimeout(
+      updateMenuAndSave(menuId, (menu) => ({
+        ...menu,
+        restaurantInfo: {
+          ...buildRestaurantInfo(menu.restaurantInfo),
+          coverImage: coverSrc,
+        },
+      })),
+      'Cover image save'
+    );
     completeStep('cover-image');
     showSaved('Cover image');
   };
@@ -430,10 +490,13 @@ export default function RestaurantPage() {
       });
 
       if (menus.length > 0) {
-        await updateMenuAndSave(menuId, (menu) => ({
-          ...menu,
-          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
-        }));
+        await withTimeout(
+          updateMenuAndSave(menuId, (menu) => ({
+            ...menu,
+            restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
+          })),
+          'Online links save'
+        );
       }
 
       showSaved('Online links');
@@ -483,10 +546,13 @@ export default function RestaurantPage() {
       });
 
       if (menus.length > 0) {
-        await updateMenuAndSave(menuId, (menu) => ({
-          ...menu,
-          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
-        }));
+        await withTimeout(
+          updateMenuAndSave(menuId, (menu) => ({
+            ...menu,
+            restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
+          })),
+          'Restaurant profile save'
+        );
       }
 
       completeStep('business-name');
@@ -624,6 +690,13 @@ export default function RestaurantPage() {
                 className="hidden"
                 onChange={handleCustomImageUpload}
               />
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
 
               <div className="grid gap-6 lg:grid-cols-[1.35fr_0.52fr_1fr]">
                 <div>
@@ -648,12 +721,23 @@ export default function RestaurantPage() {
 
                 <div>
                   <Label className="mb-2 block text-sm font-bold text-slate-700">Logo</Label>
-                  <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-slate-200 bg-[#fff8d8] text-center">
-                    <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFD400] text-xl font-black text-[#151526]">
-                      {(restaurantName || 'M').slice(0, 1).toUpperCase()}
+                  <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-slate-200 bg-[#fff8d8] p-4 text-center">
+                    <div className="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-[#FFD400] text-xl font-black text-[#151526]">
+                      {customLogoImage ? (
+                        <img src={customLogoImage} alt={`${restaurantName || 'Restaurant'} logo`} className="h-full w-full object-cover" />
+                      ) : (
+                        (restaurantName || 'M').slice(0, 1).toUpperCase()
+                      )}
                     </div>
                     <p className="max-w-[130px] text-sm font-extrabold text-slate-900">{restaurantName || 'My Restaurant'}</p>
-                    <p className="mt-1 text-xs text-slate-500">Logo upload coming soon</p>
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-[#fff1a8]"
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" />
+                      {customLogoImage ? 'Change logo' : 'Upload logo'}
+                    </button>
                   </div>
                 </div>
 

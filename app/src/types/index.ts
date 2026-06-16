@@ -71,6 +71,7 @@ export interface RestaurantInfo {
   googleBusinessName?: string;
   description?: string;
   coverImage?: string;
+  logoImage?: string;
   address?: string;
   city?: string;
   postalCode?: string;

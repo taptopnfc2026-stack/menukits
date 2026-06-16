@@ -51,6 +51,7 @@ export function MenuPreviewDrawer({ menus, restaurantName = 'My Restaurant', ini
   const restaurantInfo = visibleMenus.find((menu) => menu.restaurantInfo)?.restaurantInfo;
   const displayRestaurantName = restaurantInfo?.name || restaurantName;
   const coverImage = restaurantInfo?.coverImage || COVER_IMAGE;
+  const logoImage = restaurantInfo?.logoImage;
 
   // Get visible sections of selected menu
   const visibleSections = selectedMenu
@@ -234,6 +235,13 @@ export function MenuPreviewDrawer({ menus, restaurantName = 'My Restaurant', ini
               <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden">
                 <img src={coverImage} alt="Restaurant cover" className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                {logoImage && (
+                  <img
+                    src={logoImage}
+                    alt={`${displayRestaurantName} logo`}
+                    className="absolute bottom-4 left-5 h-12 w-12 rounded-2xl border-2 border-white/80 bg-white object-cover shadow-lg"
+                  />
+                )}
               </div>
 
               {/* Level 0 content */}
