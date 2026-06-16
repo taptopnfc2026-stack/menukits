@@ -48,6 +48,9 @@ export interface SocialLinks {
   youtube?: string;
   whatsapp?: string;
   website?: string;      // full URL
+  googleBusinessProfile?: string;
+  tripAdvisor?: string;
+  bookingLink?: string;
 }
 
 /* Promotion banner shown above menus */
@@ -65,9 +68,13 @@ export interface Promotion {
 /* Restaurant contact & info embedded in menu */
 export interface RestaurantInfo {
   name?: string;
+  googleBusinessName?: string;
   description?: string;
   coverImage?: string;
   address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
   phone?: string;
   email?: string;
   currency?: string;           // e.g. "EUR", "USD", "CNY"

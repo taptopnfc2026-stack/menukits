@@ -18,6 +18,12 @@ import {
   Leaf,
   Star,
   Link2,
+  Mail,
+  MapPin,
+  Phone,
+  Globe2,
+  Building2,
+  Save,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +44,7 @@ import {
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMenuContext } from '@/contexts/MenuContext';
+import { MenuPreviewDrawer } from '@/components/MenuPreviewDrawer';
 import type { Promotion } from '@/types';
 
 const COVER_IMAGES = [
@@ -68,6 +75,18 @@ const LINK_HELP = {
     title: 'Website',
     copy: 'Add your official website, booking page, delivery page, or Google business link. Copy the full URL from your browser, starting with https://.',
   },
+  googleBusinessProfile: {
+    title: 'Google Business Profile',
+    copy: 'Add the public link to your Google Business Profile so guests can find directions, hours, reviews, and contact details. Open your profile on Google Maps and copy the share link.',
+  },
+  tripAdvisor: {
+    title: 'TripAdvisor',
+    copy: 'Add your TripAdvisor restaurant page if you use it for reviews. Open your restaurant listing and copy the full URL from the browser.',
+  },
+  bookingLink: {
+    title: 'Booking link',
+    copy: 'Add a reservations, delivery, or ordering link. This can be your website booking page, delivery platform, or any URL guests should use to make a booking.',
+  },
 };
 
 type RestaurantRecord = {
@@ -76,6 +95,8 @@ type RestaurantRecord = {
   phone?: string;
   website?: string;
 };
+
+const normalizeHandle = (value: string) => value.trim().replace(/^@+/, '');
 
 function LinkHelp({ title, copy }: { title: string; copy: string }) {
   return (
@@ -108,8 +129,13 @@ export default function RestaurantPage() {
 
   // Restaurant details state — initialize from saved data
   const [restaurantName, setRestaurantName] = useState(existingInfo?.name ?? 'My Restaurant');
+  const [googleBusinessName, setGoogleBusinessName] = useState(existingInfo?.googleBusinessName ?? existingInfo?.name ?? '');
   const [address, setAddress] = useState(existingInfo?.address ?? '');
+  const [city, setCity] = useState(existingInfo?.city ?? '');
+  const [postalCode, setPostalCode] = useState(existingInfo?.postalCode ?? '');
+  const [country, setCountry] = useState(existingInfo?.country ?? '');
   const [phone, setPhone] = useState(existingInfo?.phone ?? '');
+  const [email, setEmail] = useState(existingInfo?.email ?? '');
   const [currency, setCurrency] = useState(existingInfo?.currency ?? '');
 
   // Cover image state
@@ -129,6 +155,9 @@ export default function RestaurantPage() {
   const [whatsapp, setWhatsapp] = useState(existingInfo?.socialLinks?.whatsapp ?? '');
   const [tiktok, setTiktok] = useState(existingInfo?.socialLinks?.tiktok ?? '');
   const [website, setWebsite] = useState(existingInfo?.socialLinks?.website ?? '');
+  const [googleBusinessProfile, setGoogleBusinessProfile] = useState(existingInfo?.socialLinks?.googleBusinessProfile ?? '');
+  const [tripAdvisor, setTripAdvisor] = useState(existingInfo?.socialLinks?.tripAdvisor ?? '');
+  const [bookingLink, setBookingLink] = useState(existingInfo?.socialLinks?.bookingLink ?? '');
 
   // Promotions state
   const [promotions, setPromotions] = useState<Promotion[]>(
@@ -143,6 +172,7 @@ export default function RestaurantPage() {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isSavingLinks, setIsSavingLinks] = useState(false);
   const [isSavingPromotions, setIsSavingPromotions] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const showSaved = (label: string) => {
     setSavedToast(label);
     setTimeout(() => setSavedToast(null), 2200);
@@ -200,8 +230,13 @@ export default function RestaurantPage() {
     const info = menus.find((m) => m.id === menuId)?.restaurantInfo;
     if (info) {
       if (restaurantRecord?.name === undefined && info.name !== undefined && info.name !== restaurantName) setRestaurantName(info.name);
+      if (info.googleBusinessName !== undefined && info.googleBusinessName !== googleBusinessName) setGoogleBusinessName(info.googleBusinessName);
       if (restaurantRecord?.address === undefined && info.address !== undefined && info.address !== address) setAddress(info.address);
+      if (info.city !== undefined && info.city !== city) setCity(info.city);
+      if (info.postalCode !== undefined && info.postalCode !== postalCode) setPostalCode(info.postalCode);
+      if (info.country !== undefined && info.country !== country) setCountry(info.country);
       if (restaurantRecord?.phone === undefined && info.phone !== undefined && info.phone !== phone) setPhone(info.phone);
+      if (info.email !== undefined && info.email !== email) setEmail(info.email);
       if (info.currency !== undefined && info.currency !== currency) setCurrency(info.currency);
       if (info.coverImage !== undefined) {
         if (COVER_IMAGES.includes(info.coverImage)) {
@@ -218,6 +253,9 @@ export default function RestaurantPage() {
       if (info.socialLinks?.whatsapp !== undefined && info.socialLinks.whatsapp !== whatsapp) setWhatsapp(info.socialLinks.whatsapp);
       if (info.socialLinks?.tiktok !== undefined && info.socialLinks.tiktok !== tiktok) setTiktok(info.socialLinks.tiktok);
       if (restaurantRecord?.website === undefined && info.socialLinks?.website !== undefined && info.socialLinks.website !== website) setWebsite(info.socialLinks.website);
+      if (info.socialLinks?.googleBusinessProfile !== undefined && info.socialLinks.googleBusinessProfile !== googleBusinessProfile) setGoogleBusinessProfile(info.socialLinks.googleBusinessProfile);
+      if (info.socialLinks?.tripAdvisor !== undefined && info.socialLinks.tripAdvisor !== tripAdvisor) setTripAdvisor(info.socialLinks.tripAdvisor);
+      if (info.socialLinks?.bookingLink !== undefined && info.socialLinks.bookingLink !== bookingLink) setBookingLink(info.socialLinks.bookingLink);
       if (info.promotions !== undefined) setPromotions(info.promotions);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,6 +302,56 @@ export default function RestaurantPage() {
 
   /* ---- Save handlers ---- */
 
+  const buildRestaurantInfo = useCallback((currentInfo = existingInfo) => ({
+    ...(currentInfo || {}),
+    name: restaurantName || 'My Restaurant',
+    googleBusinessName: googleBusinessName || undefined,
+    address: address || undefined,
+    city: city || undefined,
+    postalCode: postalCode || undefined,
+    country: country || undefined,
+    phone: phone || undefined,
+    email: email || undefined,
+    currency: currency || undefined,
+    coverImage: customCoverImage || COVER_IMAGES[selectedImageIndex],
+    socialLinks: {
+      ...(currentInfo?.socialLinks || {}),
+      instagram: normalizeHandle(instagram) || undefined,
+      facebook: normalizeHandle(facebook) || undefined,
+      whatsapp: whatsapp || undefined,
+      tiktok: normalizeHandle(tiktok) || undefined,
+      website: website || undefined,
+      googleBusinessProfile: googleBusinessProfile || undefined,
+      tripAdvisor: tripAdvisor || undefined,
+      bookingLink: bookingLink || undefined,
+    },
+    onlineLinks: currentInfo?.onlineLinks ?? [],
+    languages: currentInfo?.languages ?? ['en'],
+    promotions: currentInfo?.promotions ?? promotions,
+  }), [
+    existingInfo,
+    restaurantName,
+    googleBusinessName,
+    address,
+    city,
+    postalCode,
+    country,
+    phone,
+    email,
+    currency,
+    customCoverImage,
+    selectedImageIndex,
+    instagram,
+    facebook,
+    whatsapp,
+    tiktok,
+    website,
+    googleBusinessProfile,
+    tripAdvisor,
+    bookingLink,
+    promotions,
+  ]);
+
   const handleSaveDetails = async () => {
     setIsSavingDetails(true);
     try {
@@ -277,20 +365,7 @@ export default function RestaurantPage() {
       if (menus.length > 0) {
         await updateMenuAndSave(menuId, (menu) => ({
           ...menu,
-          restaurantInfo: {
-            ...(menu.restaurantInfo || {}),
-            name: restaurantName,
-            address: address || undefined,
-            phone: phone || undefined,
-            currency: currency || undefined,
-            socialLinks: {
-              ...(menu.restaurantInfo?.socialLinks || {}),
-              website: website || undefined,
-            },
-            onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-            languages: menu.restaurantInfo?.languages ?? ['en'],
-            promotions: menu.restaurantInfo?.promotions ?? [],
-          },
+          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
         }));
       }
 
@@ -336,12 +411,8 @@ export default function RestaurantPage() {
     await updateMenuAndSave(menuId, (menu) => ({
       ...menu,
       restaurantInfo: {
-        ...(menu.restaurantInfo || {}),
+        ...buildRestaurantInfo(menu.restaurantInfo),
         coverImage: coverSrc,
-        name: menu.restaurantInfo?.name || restaurantName,
-        onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-        languages: menu.restaurantInfo?.languages ?? [],
-        promotions: menu.restaurantInfo?.promotions ?? [],
       },
     }));
     completeStep('cover-image');
@@ -361,19 +432,7 @@ export default function RestaurantPage() {
       if (menus.length > 0) {
         await updateMenuAndSave(menuId, (menu) => ({
           ...menu,
-          restaurantInfo: {
-            ...(menu.restaurantInfo || {}),
-            socialLinks: {
-              instagram: instagram || undefined,
-              facebook: facebook || undefined,
-              whatsapp: whatsapp || undefined,
-              tiktok: tiktok || undefined,
-              website: website || undefined,
-            },
-            onlineLinks: menu.restaurantInfo?.onlineLinks ?? [],
-            languages: menu.restaurantInfo?.languages ?? [],
-            promotions: menu.restaurantInfo?.promotions ?? [],
-          },
+          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
         }));
       }
 
@@ -409,6 +468,36 @@ export default function RestaurantPage() {
       alert('Could not save promotions. Please try again.');
     } finally {
       setIsSavingPromotions(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSavingDetails(true);
+    setIsSavingLinks(true);
+    try {
+      await saveRestaurantRecord({
+        name: restaurantName || 'My Restaurant',
+        address: address || '',
+        phone: phone || '',
+        website: website || '',
+      });
+
+      if (menus.length > 0) {
+        await updateMenuAndSave(menuId, (menu) => ({
+          ...menu,
+          restaurantInfo: buildRestaurantInfo(menu.restaurantInfo),
+        }));
+      }
+
+      completeStep('business-name');
+      completeStep('restaurant-details');
+      showSaved('Restaurant profile');
+    } catch (error) {
+      console.error('Failed to save restaurant profile:', error);
+      alert('Could not save restaurant profile. Please try again.');
+    } finally {
+      setIsSavingDetails(false);
+      setIsSavingLinks(false);
     }
   };
 
@@ -468,13 +557,33 @@ export default function RestaurantPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Restaurant</h1>
-        <Button variant="outline" size="sm" className="text-sm">
-          View menu
-        </Button>
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Restaurant Profile</h1>
+          <p className="mt-1 text-sm text-slate-500">Manage your restaurant information, photos and links.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 rounded-xl text-sm"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSaveProfile}
+            disabled={isSavingDetails || isSavingLinks}
+            className="gap-2 rounded-xl bg-[#FFD400] px-5 font-bold text-[#151526] shadow-lg shadow-[#ffd400]/20 hover:bg-[#F2B900] disabled:opacity-70"
+          >
+            <Save className="h-4 w-4" />
+            {isSavingDetails || isSavingLinks ? 'Saving...' : 'Save changes'}
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -498,108 +607,16 @@ export default function RestaurantPage() {
 
         {/* ======== Tab 1: Restaurant details ======== */}
         <TabsContent value="details">
-          <div className="space-y-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Restaurant details</h2>
-              <p className="mt-1 text-sm text-gray-500">Enter your restaurant information.</p>
-            </div>
-
-            <div className="mx-auto max-w-md space-y-5">
-              {/* Restaurant name */}
-              <div className="space-y-1.5">
-                <Label htmlFor="rname" className="text-sm font-medium text-gray-700">
-                  Restaurant name
-                </Label>
-                <Input
-                  id="rname"
-                  value={restaurantName}
-                  onChange={(e) => setRestaurantName(e.target.value)}
-                  placeholder=""
-                  className="h-11"
-                />
-              </div>
-
-              {/* Address */}
-              <div className="space-y-1.5">
-                <Label htmlFor="address" className="text-sm font-medium text-gray-700">
-                  Address
-                </Label>
-                <Input
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. Via Roma 12"
-                  className="h-11"
-                />
-              </div>
-
-              {/* Phone number */}
-              <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                  Phone number
-                </Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 555 123 456"
-                  className="h-11"
-                />
-              </div>
-
-              {/* Currency */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-gray-700">Currency</Label>
-                <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger className="h-11 w-full">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD ($)</SelectItem>
-                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                    <SelectItem value="GBP">GBP (£)</SelectItem>
-                    <SelectItem value="CNY">CNY (¥)</SelectItem>
-                    <SelectItem value="JPY">JPY (¥)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Save */}
-              <Button
-                onClick={handleSaveDetails}
-                disabled={isSavingDetails}
-                className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base disabled:opacity-70"
-              >
-                {isSavingDetails ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Menu cover image</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Customize your menu, upload an image of your restaurant or select a default image.
-              </p>
-            </div>
-
-            <div className="mx-auto mb-8 max-w-[300px]">
-              <div className="overflow-hidden rounded-3xl shadow-xl">
-                <div className="relative aspect-[16/10] w-full overflow-hidden">
-                  <img
-                    src={customCoverImage || COVER_IMAGES[selectedImageIndex]}
-                    alt="Cover preview"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="bg-white px-6 py-4 text-center">
-                  <p className="text-lg font-bold text-gray-900">{restaurantName || 'My Restaurant'}</p>
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-[#eee6cf] bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FFD400] text-xs font-extrabold text-[#151526]">1</span>
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-base font-extrabold text-slate-950">Photos & Branding</h2>
+                  <p className="text-xs font-medium text-slate-500">Upload photos to showcase your restaurant.</p>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -607,144 +624,248 @@ export default function RestaurantPage() {
                 className="hidden"
                 onChange={handleCustomImageUpload}
               />
-              {customCoverImage ? (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 border-[#F2B900] ring-2 ring-[#FFD400]/40 transition-all"
-                  title="Change image"
-                >
-                  <img src={customCoverImage} alt="Uploaded" className="h-full w-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-xs font-medium text-white">Change</span>
+
+              <div className="grid gap-6 lg:grid-cols-[1.35fr_0.52fr_1fr]">
+                <div>
+                  <Label className="mb-2 block text-sm font-bold text-slate-700">Cover Image</Label>
+                  <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                    <img
+                      src={customCoverImage || COVER_IMAGES[selectedImageIndex]}
+                      alt="Cover preview"
+                      className="h-48 w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute left-5 bottom-5 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-lg transition hover:bg-[#fff8d8]"
+                    >
+                      <ImagePlus className="h-4 w-4" />
+                      Change image
+                    </button>
                   </div>
-                </button>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-gray-300 hover:bg-gray-50"
-                  title="Upload your own image"
-                >
-                  <Plus className="h-6 w-6" />
-                </button>
-              )}
-              {COVER_IMAGES.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => { setSelectedImageIndex(i); setCustomCoverImage(null); }}
-                  className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                    !customCoverImage && selectedImageIndex === i
-                      ? 'border-[#F2B900] ring-2 ring-[#FFD400]/40'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
+                </div>
 
-            <div className="mt-8 flex justify-center">
-              <Button onClick={handleSaveCoverImage} className="min-w-[240px] bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base">
-                Save cover image
-              </Button>
-            </div>
-          </div>
+                <div>
+                  <Label className="mb-2 block text-sm font-bold text-slate-700">Logo</Label>
+                  <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-slate-200 bg-[#fff8d8] text-center">
+                    <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFD400] text-xl font-black text-[#151526]">
+                      {(restaurantName || 'M').slice(0, 1).toUpperCase()}
+                    </div>
+                    <p className="max-w-[130px] text-sm font-extrabold text-slate-900">{restaurantName || 'My Restaurant'}</p>
+                    <p className="mt-1 text-xs text-slate-500">Logo upload coming soon</p>
+                  </div>
+                </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Online links</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Add links to your social media to reach a wider audience.
-              </p>
-            </div>
+                <div>
+                  <Label className="mb-2 flex items-center gap-1 text-sm font-bold text-slate-700">
+                    Gallery
+                    <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {COVER_IMAGES.map((img, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => { setSelectedImageIndex(i); setCustomCoverImage(null); }}
+                        className={`aspect-square overflow-hidden rounded-xl border-2 transition ${
+                          !customCoverImage && selectedImageIndex === i
+                            ? 'border-[#F2B900] ring-2 ring-[#FFD400]/40'
+                            : 'border-slate-200 hover:border-[#f1d36a]'
+                        }`}
+                      >
+                        <img src={img} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-slate-400 transition hover:border-[#f1d36a] hover:bg-[#fff8d8] hover:text-[#8a6500]"
+                    >
+                      <Plus className="h-6 w-6" />
+                      <span className="mt-1 text-xs font-bold">Add photo</span>
+                    </button>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-slate-500">Upload JPG, PNG or WEBP photos. The selected cover image appears on your guest menu.</p>
+                </div>
+              </div>
+            </section>
 
-            <div className="mx-auto max-w-md space-y-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="insta" className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                  Instagram
-                  <LinkHelp {...LINK_HELP.instagram} />
-                </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
-                  <Input
-                    id="insta"
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                    placeholder="@menukits"
-                    className="h-11 pl-8"
-                  />
+            <section className="rounded-2xl border border-[#eee6cf] bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FFD400] text-xs font-extrabold text-[#151526]">2</span>
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-base font-extrabold text-slate-950">Restaurant Information</h2>
+                  <p className="text-xs font-medium text-slate-500">Basic information about your restaurant.</p>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="fb" className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                  Facebook
-                  <LinkHelp {...LINK_HELP.facebook} />
-                </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
-                  <Input
-                    id="fb"
-                    value={facebook}
-                    onChange={(e) => setFacebook(e.target.value)}
-                    placeholder="@menukits"
-                    className="h-11 pl-8"
-                  />
+              <div className="grid gap-5 lg:grid-cols-3">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rname" className="text-sm font-bold text-slate-700">Restaurant Name <span className="text-red-500">*</span></Label>
+                    <Input id="rname" value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} className="h-11" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="gb-name" className="text-sm font-bold text-slate-700">Google Business Name</Label>
+                    <Input id="gb-name" value={googleBusinessName} onChange={(e) => setGoogleBusinessName(e.target.value)} placeholder="Same as your Google listing" className="h-11" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-bold text-slate-700">Currency</Label>
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="h-11 w-full">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD ($)</SelectItem>
+                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                        <SelectItem value="CNY">CNY (¥)</SelectItem>
+                        <SelectItem value="JPY">JPY (¥)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-sm font-bold text-slate-700">Email Address</Label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@restaurant.com" className="h-11 pl-9" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone" className="text-sm font-bold text-slate-700">Phone Number</Label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+33 9 54 00 99 65" className="h-11 pl-9" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="address" className="text-sm font-bold text-slate-700">Street Address</Label>
+                    <div className="relative">
+                      <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="140 Rue du Faubourg Poissonniere" className="h-11 pl-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="city" className="text-sm font-bold text-slate-700">City</Label>
+                      <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Paris" className="h-11" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="postal" className="text-sm font-bold text-slate-700">Postal Code</Label>
+                      <Input id="postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="75010" className="h-11" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="country" className="text-sm font-bold text-slate-700">Country</Label>
+                      <Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="France" className="h-11" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#eee6cf] bg-white p-5 shadow-sm sm:p-6">
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FFD400] text-xs font-extrabold text-[#151526]">3</span>
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-base font-extrabold text-slate-950">Online Presence</h2>
+                  <p className="text-xs font-medium text-slate-500">Add links to help customers find you online.</p>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                  WhatsApp
-                  <LinkHelp {...LINK_HELP.whatsapp} />
-                </label>
-                <Input
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  placeholder=""
-                  className="h-11"
-                />
-              </div>
+              <div className="grid gap-5 lg:grid-cols-3">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="web" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      Website
+                      <LinkHelp {...LINK_HELP.website} />
+                    </Label>
+                    <div className="relative">
+                      <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="web" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://www.restaurant.com" className="h-11 pl-9" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fb" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      Facebook
+                      <LinkHelp {...LINK_HELP.facebook} />
+                    </Label>
+                    <Input id="fb" value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="facebook.com/restaurant" className="h-11" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      WhatsApp
+                      <LinkHelp {...LINK_HELP.whatsapp} />
+                    </Label>
+                    <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="https://wa.me/33612345678" className="h-11" />
+                  </div>
+                </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="tt" className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                  TikTok
-                  <LinkHelp {...LINK_HELP.tiktok} />
-                </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">@</span>
-                  <Input
-                    id="tt"
-                    value={tiktok}
-                    onChange={(e) => setTiktok(e.target.value)}
-                    placeholder="@menukits"
-                    className="h-11 pl-8"
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="google-profile" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      Google Business Profile
+                      <LinkHelp {...LINK_HELP.googleBusinessProfile} />
+                    </Label>
+                    <div className="relative">
+                      <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="google-profile" value={googleBusinessProfile} onChange={(e) => setGoogleBusinessProfile(e.target.value)} placeholder="https://g.page/r/..." className="h-11 pl-9" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="insta" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      Instagram
+                      <LinkHelp {...LINK_HELP.instagram} />
+                    </Label>
+                    <Input id="insta" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="instagram.com/restaurant" className="h-11" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="tripadvisor" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      TripAdvisor
+                      <LinkHelp {...LINK_HELP.tripAdvisor} />
+                    </Label>
+                    <Input id="tripadvisor" value={tripAdvisor} onChange={(e) => setTripAdvisor(e.target.value)} placeholder="https://tripadvisor.com/..." className="h-11" />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="tt" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      TikTok
+                      <LinkHelp {...LINK_HELP.tiktok} />
+                    </Label>
+                    <Input id="tt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="tiktok.com/@restaurant" className="h-11" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="booking-link" className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                      Other / Booking Link
+                      <LinkHelp {...LINK_HELP.bookingLink} />
+                    </Label>
+                    <div className="relative">
+                      <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input id="booking-link" value={bookingLink} onChange={(e) => setBookingLink(e.target.value)} placeholder="https://bookings.restaurant.com" className="h-11 pl-9" />
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#f1d36a] bg-[#fff8d8] p-4">
+                    <p className="text-sm font-extrabold text-[#8a6500]">Profile preview</p>
+                    <p className="mt-1 text-xs leading-5 text-[#8a6500]/80">Save changes to update your guest menu profile, QR preview, and public restaurant hub.</p>
+                    <Button
+                      onClick={handleSaveProfile}
+                      disabled={isSavingDetails || isSavingLinks}
+                      className="mt-3 w-full bg-[#FFD400] font-bold text-[#151526] hover:bg-[#F2B900] disabled:opacity-70"
+                    >
+                      {isSavingDetails || isSavingLinks ? 'Saving...' : 'Save changes'}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="web" className="flex items-center gap-1 text-sm font-medium text-gray-700">
-                  Website
-                  <LinkHelp {...LINK_HELP.website} />
-                </Label>
-                <Input
-                  id="web"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder=""
-                  className="h-11"
-                />
-              </div>
-
-              <Button
-                onClick={handleSaveOnlineLinks}
-                disabled={isSavingLinks}
-                className="w-full bg-[#FFD400] hover:bg-[#F2B900] text-[#151526] font-bold h-12 text-base disabled:opacity-70"
-              >
-                {isSavingLinks ? 'Saving...' : 'Save online links'}
-              </Button>
-            </div>
-          </div>
+            </section>
           </div>
         </TabsContent>
 
@@ -902,6 +1023,13 @@ export default function RestaurantPage() {
           }}
         />
       )}
+
+      <MenuPreviewDrawer
+        menus={menus}
+        restaurantName={restaurantName || 'My Restaurant'}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </div>
   );
 }
