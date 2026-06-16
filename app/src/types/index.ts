@@ -5,12 +5,13 @@ export interface Dish {
   price: number;
   image?: string;
   tag?: string;
+  explanation?: string;
   isBestSeller?: boolean;
   allergens: string[];
   dietaryTags: string[];
   isVisible: boolean;
   /** AI-generated translations keyed by language code (e.g. { zh: '烤三文鱼', fr: 'Saumon Grillé' }) */
-  translations?: Record<string, { name?: string; description?: string }>;
+  translations?: Record<string, { name?: string; description?: string; explanation?: string }>;
 }
 
 export interface Section {

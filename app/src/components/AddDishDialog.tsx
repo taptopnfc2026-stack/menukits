@@ -187,8 +187,10 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [tag, setTag] = useState('');
+  const [explanation, setExplanation] = useState('');
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
+  const [customDietaryTag, setCustomDietaryTag] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -202,21 +204,26 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
       setDescription(editingDish.description);
       setPrice(String(editingDish.price));
       setTag(editingDish.tag || '');
+      setExplanation(editingDish.explanation || '');
       setSelectedAllergens(normalizeAllergenList(editingDish.allergens));
       setSelectedDietary(editingDish.dietaryTags || []);
+      setCustomDietaryTag('');
       setImagePreview(editingDish.image || null);
     } else if (!editingDish && open) {
       setName('');
       setDescription('');
       setPrice('');
       setTag('');
+      setExplanation('');
       setSelectedAllergens([]);
       setSelectedDietary([]);
+      setCustomDietaryTag('');
       setImagePreview(null);
     }
   }, [editingDish, open]);
 
   const isEditing = !!editingDish;
+  const dietaryChoices = Array.from(new Set([...DIETARY_TAGS, ...selectedDietary]));
 
   const toggleAllergen = (a: string) =>
     setSelectedAllergens((prev) =>
@@ -227,6 +234,16 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
     setSelectedDietary((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
     );
+
+  const addCustomDietaryTag = () => {
+    const nextTag = customDietaryTag.trim().replace(/\s+/g, ' ');
+    if (!nextTag) return;
+    setSelectedDietary((prev) => {
+      if (prev.some((item) => item.toLowerCase() === nextTag.toLowerCase())) return prev;
+      return [...prev, nextTag];
+    });
+    setCustomDietaryTag('');
+  };
 
   // --- Image Upload ---
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -318,6 +335,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
       description: description.trim(),
       price: parseFloat(price) || 0,
       tag: tag.trim() || undefined,
+      explanation: explanation.trim() || undefined,
       allergens: normalizeAllergenList(selectedAllergens),
       dietaryTags: selectedDietary,
       isVisible: true,
@@ -328,8 +346,10 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
     setDescription('');
     setPrice('');
     setTag('');
+    setExplanation('');
     setSelectedAllergens([]);
     setSelectedDietary([]);
+    setCustomDietaryTag('');
     setImagePreview(null);
     onOpenChange(false);
   };
@@ -538,7 +558,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {DIETARY_TAGS.map((d) => (
+              {dietaryChoices.map((d) => (
                 <button
                   key={d}
                   type="button"
@@ -553,6 +573,46 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
                 </button>
               ))}
             </div>
+            <div className="mt-3 flex flex-col gap-2 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center">
+              <Input
+                value={customDietaryTag}
+                onChange={(e) => setCustomDietaryTag(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomDietaryTag();
+                  }
+                }}
+                placeholder="Add custom dietary tag"
+                className="h-9 bg-white"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addCustomDietaryTag}
+                disabled={!customDietaryTag.trim()}
+                className="h-9 shrink-0 border-[#FFD400] text-[#8a6500] hover:bg-[#fff8d8]"
+              >
+                Add tag
+              </Button>
+            </div>
+          </div>
+
+          {/* Dish story */}
+          <div className="rounded-2xl border border-[#f0dfaa] bg-[#fffdf5] p-4">
+            <div className="mb-2">
+              <label className="block text-sm font-semibold text-gray-800">Dish story</label>
+              <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                This is shown when guests tap the question mark on the mobile menu. Edit it once, then translate it with your enabled menu languages.
+              </p>
+            </div>
+            <Textarea
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              placeholder="Tell guests the origin, ingredients, flavor profile, and how to enjoy this dish."
+              rows={5}
+              className="resize-none bg-white"
+            />
           </div>
 
           {/* Save button */}

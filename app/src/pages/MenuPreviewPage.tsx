@@ -170,6 +170,7 @@ function MenuPreviewContent() {
   }, [id]);
 
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [savedDishStory, setSavedDishStory] = useState<{ dishId: string; text: string } | null>(null);
   const [activeSection, setActiveSection] = useState('');
   const [showCart, setShowCart] = useState(false);
   const [showOrderSlip, setShowOrderSlip] = useState(false);
@@ -186,6 +187,28 @@ function MenuPreviewContent() {
 
   // AI dish explanation (on-demand, follows uiLang)
   const explain = useDishExplain(uiLang);
+
+  const getSavedDishStory = (dish: Dish) => {
+    const translated = dish.translations?.[uiLang]?.explanation?.trim();
+    if (translated) return translated;
+    return dish.explanation?.trim() || '';
+  };
+
+  const openDishStory = (dish: Dish) => {
+    const story = getSavedDishStory(dish);
+    if (story) {
+      explain.dismiss();
+      setSavedDishStory({ dishId: dish.id, text: story });
+      return;
+    }
+    setSavedDishStory(null);
+    explain.explainDish(dish);
+  };
+
+  const closeDishStory = () => {
+    setSavedDishStory(null);
+    explain.dismiss();
+  };
 
   // Get quantity of a specific dish in cart
   const getDishQty = (dishId: string) =>
@@ -474,7 +497,7 @@ function MenuPreviewContent() {
                               </button>
                               {/* AI Explain Button */}
                               <button
-                                onClick={(e) => { e.stopPropagation(); explain.explainDish(dish); }}
+                                onClick={(e) => { e.stopPropagation(); openDishStory(dish); }}
                                 title="Tell me about this dish"
                                 className="shrink-0 mt-0.5 p-1 rounded-full text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
                               >
@@ -500,7 +523,13 @@ function MenuPreviewContent() {
                             )}
                             {dish.dietaryTags.slice(0, 2).map((tag) => {
                               const cfg = DIETARY_ICONS[tag];
-                              if (!cfg) return null;
+                              if (!cfg) {
+                                return (
+                                  <span key={tag} className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700">
+                                    {tTag(tag)}
+                                  </span>
+                                );
+                              }
                               const IconComp = cfg.icon;
                               return (
                                 <span key={tag} className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium ${cfg.bg} ${cfg.color}`}>
@@ -976,7 +1005,7 @@ function MenuPreviewContent() {
                     <div className="flex items-start gap-2">
                       <h2 className="text-[22px] font-bold text-gray-900 leading-snug">{modalDishName.display}</h2>
                       <button
-                        onClick={() => explain.explainDish(selectedDish)}
+                        onClick={() => openDishStory(selectedDish)}
                         title="Tell me about this dish"
                         className="shrink-0 mt-1 p-1 rounded-full text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
                       >
@@ -1000,7 +1029,13 @@ function MenuPreviewContent() {
                       <div className="flex flex-wrap gap-2">
                         {selectedDish.dietaryTags.map((tag) => {
                           const cfg = DIETARY_ICONS[tag];
-                          if (!cfg) return null;
+                          if (!cfg) {
+                            return (
+                              <span key={tag} className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700">
+                                {tTag(tag)}
+                              </span>
+                            );
+                          }
                           const IconComp = cfg.icon;
                           return (
                             <span key={tag} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${cfg.bg} ${cfg.color}`}>
@@ -1042,33 +1077,33 @@ function MenuPreviewContent() {
       })()}
 
       {/* ====== AI Dish Explanation Popup ====== */}
-      {(explain.status !== 'idle') && (
+      {(savedDishStory || explain.status !== 'idle') && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={explain.dismiss} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeDishStory} />
           <div className="relative w-full max-w-[460px] animate-slide-up rounded-t-3xl bg-white sm:rounded-3xl sm:m-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between pt-5 pb-3 px-6 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
-                  {explain.status === 'loading' ? (
+                  {!savedDishStory && explain.status === 'loading' ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : explain.status === 'error' ? (
+                  ) : !savedDishStory && explain.status === 'error' ? (
                     <AlertTriangle className="h-5 w-5" />
                   ) : (
                     <BookOpen className="h-5 w-5" />
                   )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">{explain.status === 'loading' ? t('learningAboutDish') : t('dishStory')}</h3>
+                  <h3 className="text-base font-bold text-gray-900">{!savedDishStory && explain.status === 'loading' ? t('learningAboutDish') : t('dishStory')}</h3>
                   <p className="text-xs text-gray-400">{t('aiInsights')}</p>
                 </div>
               </div>
-              <button onClick={explain.dismiss}
+              <button onClick={closeDishStory}
                 className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
               ><X className="h-5 w-5" /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {explain.status === 'loading' && (
+              {!savedDishStory && explain.status === 'loading' && (
                 <div className="space-y-3">
                   <div className="h-4 bg-gray-100 rounded-full animate-pulse w-full" />
                   <div className="h-4 bg-gray-100 rounded-full animate-pulse w-11/12" />
@@ -1078,7 +1113,7 @@ function MenuPreviewContent() {
                   <div className="h-4 bg-gray-100 rounded-full animate-pulse w-full" />
                 </div>
               )}
-              {explain.status === 'error' && (
+              {!savedDishStory && explain.status === 'error' && (
                 <div className="text-center py-6">
                   <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-amber-400" />
                   <p className="text-sm text-gray-600">{explain.error}</p>
@@ -1095,9 +1130,9 @@ function MenuPreviewContent() {
                   </button>
                 </div>
               )}
-              {explain.status === 'ready' && explain.text && (
+              {(savedDishStory || (explain.status === 'ready' && explain.text)) && (
                 <div className="space-y-3 leading-relaxed text-[15px] text-gray-700">
-                  {explain.text.split('\n').filter(Boolean).map((line, i) => (
+                  {(savedDishStory?.text || explain.text || '').split('\n').filter(Boolean).map((line, i) => (
                     <p key={i}>{formatBoldText(line)}</p>
                   ))}
                 </div>
@@ -1105,7 +1140,7 @@ function MenuPreviewContent() {
             </div>
 
             <div className="px-6 pb-5 pt-2">
-              <button onClick={explain.dismiss}
+              <button onClick={closeDishStory}
                 className="w-full rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-200 active:scale-[0.98] transition-all"
               >
                 {t('gotIt')}

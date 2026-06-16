@@ -58,6 +58,7 @@ function countTranslations(menu: Menu | undefined): number {
         for (const lang of Object.values(dish.translations)) {
           if (lang.name) count++;
           if (lang.description) count++;
+          if (lang.explanation) count++;
         }
       }
     }
@@ -74,6 +75,7 @@ function countTotalItems(menu: Menu | undefined): number {
     for (const dish of sec.dishes) {
       total += 1; // dish name
       if (dish.description.trim()) total += 1; // description
+      if (dish.explanation?.trim()) total += 1; // dish story
     }
   }
   return total;
@@ -172,10 +174,10 @@ export default function TranslationPage() {
     // Collect all items to translate: [{ text, type, sectionIndex, dishIndex?, field }]
     interface TranslateItem {
       text: string;
-      type: 'section' | 'dish-name' | 'dish-desc';
+      type: 'section' | 'dish-name' | 'dish-desc' | 'dish-explanation';
       sectionIndex: number;
       dishIndex?: number;
-      field?: 'name' | 'description';
+      field?: 'name' | 'description' | 'explanation';
     }
 
     const items: TranslateItem[] = [];
@@ -184,6 +186,7 @@ export default function TranslationPage() {
       sec.dishes.forEach((dish, di) => {
         if (dish.name.trim()) items.push({ text: dish.name, type: 'dish-name', sectionIndex: si, dishIndex: di, field: 'name' });
         if (dish.description?.trim()) items.push({ text: dish.description, type: 'dish-desc', sectionIndex: si, dishIndex: di, field: 'description' });
+        if (dish.explanation?.trim()) items.push({ text: dish.explanation, type: 'dish-explanation', sectionIndex: si, dishIndex: di, field: 'explanation' });
       });
     });
 
@@ -531,7 +534,7 @@ export default function TranslationPage() {
                           const langFlag = LANGUAGES.find((l) => l.code === code)?.flag || code;
                           return (
                             <p key={code} className="text-xs font-medium text-[#8a6500]">
-                              <strong>{langFlag}</strong> {tr.name}{tr.description ? ` / ${tr.description.substring(0, 60)}...` : ''}
+                              <strong>{langFlag}</strong> {tr.name}{tr.description ? ` / ${tr.description.substring(0, 60)}...` : ''}{tr.explanation ? ` / ${tr.explanation.substring(0, 60)}...` : ''}
                             </p>
                           );
                         })}
