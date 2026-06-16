@@ -729,7 +729,7 @@ export default function EditorPage() {
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] border-collapse text-left">
+            <table className="w-full min-w-[1360px] border-collapse text-left">
               <thead className="border-b border-slate-200 bg-slate-50/80">
                 <tr className="text-xs font-extrabold uppercase tracking-wide text-slate-500">
                   <th className="w-12 px-4 py-4">
@@ -765,6 +765,7 @@ export default function EditorPage() {
                   <th className="w-64 px-3 py-4">Description</th>
                   <th className="w-28 px-3 py-4">Price</th>
                   <th className="w-48 px-3 py-4">Categories</th>
+                  <th className="w-52 px-3 py-4">Dish recommendation</th>
                   <th className="w-52 px-3 py-4">Allergens</th>
                   <th className="w-56 px-3 py-4">
                     <div className="flex items-center gap-2">
@@ -841,11 +842,6 @@ export default function EditorPage() {
                           <Tags className="h-3 w-3" />
                           {sectionName}
                         </span>
-                        {dish.tag && (
-                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600">
-                            {dish.tag}
-                          </span>
-                        )}
                         {dish.isBestSeller && (
                           <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
                             <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
@@ -853,6 +849,15 @@ export default function EditorPage() {
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-3 py-4">
+                      {dish.tag ? (
+                        <p className="line-clamp-3 max-w-[220px] rounded-xl bg-[#fff8d8] px-3 py-2 text-sm font-semibold leading-5 text-[#8a6500]">
+                          {dish.tag}
+                        </p>
+                      ) : (
+                        <span className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-400">None</span>
+                      )}
                     </td>
                     <td className="px-3 py-4">
                       <div className="flex max-w-[220px] flex-wrap gap-1.5">

@@ -478,20 +478,20 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
             </div>
           </div>
 
-          {/* Promotion copy */}
+          {/* Dish recommendation */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Promotion copy</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">Dish recommendation</label>
             <div className="relative">
               <TagIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
-                placeholder="Write a short promotion copy"
+                placeholder="Write a short dish recommendation"
                 className="pl-9"
               />
             </div>
             <button className="mt-2 inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">
-              Suggested tags
+              Suggested recommendations
               <span className="text-gray-400">▾</span>
             </button>
           </div>
