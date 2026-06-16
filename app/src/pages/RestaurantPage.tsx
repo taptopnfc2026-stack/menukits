@@ -99,6 +99,9 @@ type RestaurantRecord = {
 const normalizeHandle = (value: string) => value.trim().replace(/^@+/, '');
 const SAVE_TIMEOUT_MS = 12000;
 
+const uniqueImages = (images: Array<string | null | undefined>) =>
+  Array.from(new Set(images.map((image) => image?.trim()).filter((image): image is string => Boolean(image))));
+
 function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = SAVE_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
@@ -165,6 +168,12 @@ export default function RestaurantPage() {
   // Custom uploaded cover image (base64 data URL)
   const [customCoverImage, setCustomCoverImage] = useState<string | null>(
     existingInfo?.coverImage && !COVER_IMAGES.includes(existingInfo.coverImage) ? existingInfo.coverImage : null
+  );
+  const [galleryImages, setGalleryImages] = useState<string[]>(() =>
+    uniqueImages([
+      ...(existingInfo?.galleryImages || []),
+      existingInfo?.coverImage && !COVER_IMAGES.includes(existingInfo.coverImage) ? existingInfo.coverImage : null,
+    ])
   );
   const [customLogoImage, setCustomLogoImage] = useState<string | null>(existingInfo?.logoImage ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +285,13 @@ export default function RestaurantPage() {
           if (selectedImageIndex !== -1) setSelectedImageIndex(-1);
         }
       }
+      if (info.galleryImages !== undefined) {
+        const nextGallery = uniqueImages([
+          ...info.galleryImages,
+          info.coverImage && !COVER_IMAGES.includes(info.coverImage) ? info.coverImage : null,
+        ]);
+        if (JSON.stringify(nextGallery) !== JSON.stringify(galleryImages)) setGalleryImages(nextGallery);
+      }
       if (info.logoImage !== undefined && info.logoImage !== customLogoImage) setCustomLogoImage(info.logoImage || null);
       if (info.socialLinks?.instagram !== undefined && info.socialLinks.instagram !== instagram) setInstagram(info.socialLinks.instagram);
       if (info.socialLinks?.facebook !== undefined && info.socialLinks.facebook !== facebook) setFacebook(info.socialLinks.facebook);
@@ -331,34 +347,44 @@ export default function RestaurantPage() {
 
   /* ---- Save handlers ---- */
 
-  const buildRestaurantInfo = useCallback((currentInfo = existingInfo) => ({
-    ...(currentInfo || {}),
-    name: restaurantName || 'My Restaurant',
-    googleBusinessName: googleBusinessName || undefined,
-    address: address || undefined,
-    city: city || undefined,
-    postalCode: postalCode || undefined,
-    country: country || undefined,
-    phone: phone || undefined,
-    email: email || undefined,
-    currency: currency || undefined,
-    coverImage: customCoverImage || COVER_IMAGES[selectedImageIndex],
-    logoImage: customLogoImage || undefined,
-    socialLinks: {
-      ...(currentInfo?.socialLinks || {}),
-      instagram: normalizeHandle(instagram) || undefined,
-      facebook: normalizeHandle(facebook) || undefined,
-      whatsapp: whatsapp || undefined,
-      tiktok: normalizeHandle(tiktok) || undefined,
-      website: website || undefined,
-      googleBusinessProfile: googleBusinessProfile || undefined,
-      tripAdvisor: tripAdvisor || undefined,
-      bookingLink: bookingLink || undefined,
-    },
-    onlineLinks: currentInfo?.onlineLinks ?? [],
-    languages: currentInfo?.languages ?? ['en'],
-    promotions: currentInfo?.promotions ?? promotions,
-  }), [
+  const buildRestaurantInfo = useCallback((currentInfo = existingInfo) => {
+    const selectedDefaultCover = selectedImageIndex >= 0 ? COVER_IMAGES[selectedImageIndex] : COVER_IMAGES[1];
+    const coverImage = customCoverImage || selectedDefaultCover;
+    const savedGalleryImages = uniqueImages([
+      ...galleryImages,
+      coverImage && !COVER_IMAGES.includes(coverImage) ? coverImage : null,
+    ]);
+
+    return {
+      ...(currentInfo || {}),
+      name: restaurantName || 'My Restaurant',
+      googleBusinessName: googleBusinessName || undefined,
+      address: address || undefined,
+      city: city || undefined,
+      postalCode: postalCode || undefined,
+      country: country || undefined,
+      phone: phone || undefined,
+      email: email || undefined,
+      currency: currency || undefined,
+      coverImage,
+      galleryImages: savedGalleryImages,
+      logoImage: customLogoImage || undefined,
+      socialLinks: {
+        ...(currentInfo?.socialLinks || {}),
+        instagram: normalizeHandle(instagram) || undefined,
+        facebook: normalizeHandle(facebook) || undefined,
+        whatsapp: whatsapp || undefined,
+        tiktok: normalizeHandle(tiktok) || undefined,
+        website: website || undefined,
+        googleBusinessProfile: googleBusinessProfile || undefined,
+        tripAdvisor: tripAdvisor || undefined,
+        bookingLink: bookingLink || undefined,
+      },
+      onlineLinks: currentInfo?.onlineLinks ?? [],
+      languages: currentInfo?.languages ?? ['en'],
+      promotions: currentInfo?.promotions ?? promotions,
+    };
+  }, [
     existingInfo,
     restaurantName,
     googleBusinessName,
@@ -370,6 +396,7 @@ export default function RestaurantPage() {
     email,
     currency,
     customCoverImage,
+    galleryImages,
     customLogoImage,
     selectedImageIndex,
     instagram,
@@ -430,8 +457,7 @@ export default function RestaurantPage() {
     }
 
     resizeImage(file, 1400, 0.84).then((dataUrl) => {
-      setCustomCoverImage(dataUrl);
-      setSelectedImageIndex(-1); // Deselect default images
+      setGalleryImages((prev) => uniqueImages([...prev, dataUrl]));
     }).catch(() => {
       alert('Failed to process image. Please try another file.');
     });
@@ -464,13 +490,17 @@ export default function RestaurantPage() {
   }, [resizeImage]);
 
   const handleSaveCoverImage = async () => {
-    const coverSrc = customCoverImage || COVER_IMAGES[selectedImageIndex];
+    const coverSrc = customCoverImage || (selectedImageIndex >= 0 ? COVER_IMAGES[selectedImageIndex] : COVER_IMAGES[1]);
     await withTimeout(
       updateMenuAndSave(menuId, (menu) => ({
         ...menu,
         restaurantInfo: {
           ...buildRestaurantInfo(menu.restaurantInfo),
           coverImage: coverSrc,
+          galleryImages: uniqueImages([
+            ...galleryImages,
+            coverSrc && !COVER_IMAGES.includes(coverSrc) ? coverSrc : null,
+          ]),
         },
       })),
       'Cover image save'
@@ -703,7 +733,7 @@ export default function RestaurantPage() {
                   <Label className="mb-2 block text-sm font-bold text-slate-700">Cover Image</Label>
                   <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                     <img
-                      src={customCoverImage || COVER_IMAGES[selectedImageIndex]}
+                      src={customCoverImage || (selectedImageIndex >= 0 ? COVER_IMAGES[selectedImageIndex] : COVER_IMAGES[1])}
                       alt="Cover preview"
                       className="h-48 w-full object-cover"
                     />
@@ -714,7 +744,7 @@ export default function RestaurantPage() {
                       className="absolute left-5 bottom-5 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-lg transition hover:bg-[#fff8d8]"
                     >
                       <ImagePlus className="h-4 w-4" />
-                      Change image
+                      Add to gallery
                     </button>
                   </div>
                 </div>
@@ -754,6 +784,20 @@ export default function RestaurantPage() {
                         onClick={() => { setSelectedImageIndex(i); setCustomCoverImage(null); }}
                         className={`aspect-square overflow-hidden rounded-xl border-2 transition ${
                           !customCoverImage && selectedImageIndex === i
+                            ? 'border-[#F2B900] ring-2 ring-[#FFD400]/40'
+                            : 'border-slate-200 hover:border-[#f1d36a]'
+                        }`}
+                      >
+                        <img src={img} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                    {galleryImages.map((img, i) => (
+                      <button
+                        key={`custom-${i}`}
+                        type="button"
+                        onClick={() => { setCustomCoverImage(img); setSelectedImageIndex(-1); }}
+                        className={`aspect-square overflow-hidden rounded-xl border-2 transition ${
+                          customCoverImage === img
                             ? 'border-[#F2B900] ring-2 ring-[#FFD400]/40'
                             : 'border-slate-200 hover:border-[#f1d36a]'
                         }`}
