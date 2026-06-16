@@ -36,7 +36,7 @@ import { MenuPreviewDrawer } from '@/components/MenuPreviewDrawer';
 import { useChecklist } from '@/contexts/ChecklistContext';
 import { useMenuContext } from '@/contexts/MenuContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteMenuFromCloud, queuePendingMenuDelete } from '@/lib/menu-api';
+import { clearPendingMenuDelete, deleteMenuFromCloud, queuePendingMenuDelete } from '@/lib/menu-api';
 import type { Menu } from '@/types';
 
 export default function MenusPage() {
@@ -98,8 +98,10 @@ export default function MenusPage() {
 
   const handleDelete = async (menuId: string) => {
     setMenus((prev) => prev.filter((m) => m.id !== menuId));
+    queuePendingMenuDelete(menuId);
     try {
       await deleteMenuFromCloud(menuId, authToken);
+      clearPendingMenuDelete(menuId);
     } catch {
       queuePendingMenuDelete(menuId);
     }

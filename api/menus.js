@@ -231,6 +231,20 @@ async function handleDelete(req, res, id) {
   const user = await getUser(req);
   if (!user) return err(res, 401, 'Unauthorized');
 
+  const existing = await supabaseQuery('menus', {
+    method: 'GET',
+    query: { select: 'id', id: `eq.${id}`, user_id: `eq.${user.id}`, limit: '1' },
+    useServiceRole: true,
+  });
+
+  if (!existing.ok) {
+    console.error('[Menus] Delete preflight failed:', existing.status, existing.error);
+    return err(res, 502, `Failed to check menu before delete: ${existing.error}`);
+  }
+
+  const existingRow = Array.isArray(existing.data) ? existing.data[0] : null;
+  if (!existingRow) return err(res, 404, 'Menu not found');
+
   const result = await supabaseQuery('menus', {
     method: 'DELETE',
     query: { id: `eq.${id}`, user_id: `eq.${user.id}` },
@@ -240,6 +254,23 @@ async function handleDelete(req, res, id) {
   if (!result.ok) {
     console.error('[Menus] Delete failed:', result.status, result.error);
     return err(res, 502, `Failed to delete menu: ${result.error}`);
+  }
+
+  const check = await supabaseQuery('menus', {
+    method: 'GET',
+    query: { select: 'id', id: `eq.${id}`, user_id: `eq.${user.id}`, limit: '1' },
+    useServiceRole: true,
+  });
+
+  if (!check.ok) {
+    console.error('[Menus] Delete verification failed:', check.status, check.error);
+    return err(res, 502, `Failed to verify menu deletion: ${check.error}`);
+  }
+
+  const stillExists = Array.isArray(check.data) && check.data.length > 0;
+  if (stillExists) {
+    console.error('[Menus] Delete verification found row still present:', id);
+    return err(res, 502, 'Delete failed: menu still exists after delete');
   }
 
   return json(res, 200, { success: true });

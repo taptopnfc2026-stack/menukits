@@ -43,6 +43,12 @@ interface RecognizedSection {
   dishes: RecognizedDish[];
 }
 
+interface RecognizedMenuResult {
+  restaurantName?: string;
+  restaurant_name?: string;
+  sections: RecognizedSection[];
+}
+
 type ImageContent = {
   type: 'image_url';
   image_url: {
@@ -62,10 +68,12 @@ Rules:
 4. If no price is visible, set price to 0.
 5. If the image is unclear or not a menu, return an empty sections array.
 6. Keep dish names and descriptions in their original language.
-7. Return ONLY valid JSON, no markdown, no explanations.
+7. If a restaurant, cafe, bar, or menu brand name is visible in the header, logo, cover, or document title, extract it as "restaurantName". If not visible, use an empty string.
+8. Return ONLY valid JSON, no markdown, no explanations.
 
 Output format:
 {
+  "restaurantName": "Restaurant Name",
   "sections": [
     {
       "name": "Appetizers",
@@ -101,6 +109,7 @@ This is advisory only: infer likely allergens from explicit ingredients and comm
 
 Output format when allergen detection is requested:
 {
+  "restaurantName": "Restaurant Name",
   "sections": [
     {
       "name": "Appetizers",
@@ -282,7 +291,7 @@ export async function recognizeMenuFromImages(
   files: File[],
   onProgress?: (message: string) => void,
   options: { detectAllergens?: boolean } = {}
-): Promise<{ sections: RecognizedSection[] } | null> {
+): Promise<RecognizedMenuResult | null> {
   const config = getProviderConfig();
 
   if (!config.hasAnyKey) {
@@ -451,7 +460,17 @@ export async function recognizeMenuFromImages(
     onProgress?.(`Done! ${parsed.sections.length} sections found`);
 
     clearTimeout(timeoutId);
-    return parsed;
+    const restaurantName =
+      typeof parsed.restaurantName === 'string'
+        ? parsed.restaurantName.trim()
+        : typeof parsed.restaurant_name === 'string'
+          ? parsed.restaurant_name.trim()
+          : '';
+
+    return {
+      restaurantName,
+      sections: parsed.sections,
+    };
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -532,16 +551,27 @@ function getRecognitionModel(): string {
 
 // ---- 将识别结果转换为 Menu 数据结构 ----
 export function convertToMenu(
-  recognized: { sections: RecognizedSection[] },
+  recognized: RecognizedMenuResult,
   files: File[],
   restaurantName?: string
 ): Menu {
   const now = new Date().toISOString();
-  const menuTitle = restaurantName || `Menu (${files.length} file${files.length > 1 ? 's' : ''})`;
+  const extractedRestaurantName =
+    (restaurantName || recognized.restaurantName || recognized.restaurant_name || '').trim();
+  const fallbackTitle = files[0]?.name
+    ? files[0].name
+        .replace(/\.[^.]+$/, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b(menu|scan|upload|file|pdf|image)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
+  const menuTitle = extractedRestaurantName || fallbackTitle || `Menu (${files.length} file${files.length > 1 ? 's' : ''})`;
 
   return {
     id: Date.now().toString(),
     title: menuTitle,
+    restaurantInfo: extractedRestaurantName ? { name: extractedRestaurantName } : undefined,
     sections: recognized.sections.map((sec, secIdx) => ({
       id: `s-${Date.now()}-${secIdx}`,
       name: sec.name,
