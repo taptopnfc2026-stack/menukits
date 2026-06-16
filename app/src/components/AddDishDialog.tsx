@@ -31,6 +31,52 @@ const ALLERGENS = [
   'Sesame', 'Sulfites', 'Lupin', 'Molluscs',
 ];
 
+const ALLERGEN_ALIASES: Record<string, string> = {
+  crustacean: 'Crustaceans',
+  crustaceans: 'Crustaceans',
+  egg: 'Eggs',
+  eggs: 'Eggs',
+  fish: 'Fish',
+  gluten: 'Gluten',
+  lupin: 'Lupin',
+  lupine: 'Lupin',
+  milk: 'Milk',
+  mollusc: 'Molluscs',
+  molluscs: 'Molluscs',
+  mollusk: 'Molluscs',
+  mollusks: 'Molluscs',
+  mustard: 'Mustard',
+  nut: 'Nuts',
+  nuts: 'Nuts',
+  peanut: 'Peanuts',
+  peanuts: 'Peanuts',
+  sesame: 'Sesame',
+  soybean: 'Soybeans',
+  soybeans: 'Soybeans',
+  soy: 'Soybeans',
+  sulphites: 'Sulfites',
+  sulfites: 'Sulfites',
+  sulphite: 'Sulfites',
+  sulfite: 'Sulfites',
+  'tree nuts': 'Nuts',
+  tree_nuts: 'Nuts',
+  'tree-nuts': 'Nuts',
+  celery: 'Celery',
+};
+
+const normalizeAllergenName = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
+  const compactKey = key.replace(/[_-]+/g, ' ');
+  return ALLERGEN_ALIASES[key] || ALLERGEN_ALIASES[compactKey] || trimmed;
+};
+
+const normalizeAllergenList = (values?: string[]) =>
+  Array.from(
+    new Set((values || []).map(normalizeAllergenName).filter(Boolean))
+  );
+
 // --- AI Description Generator ---
 function generateAIDescription(dishName: string): Promise<string> {
   return new Promise((resolve) => {
@@ -156,7 +202,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
       setDescription(editingDish.description);
       setPrice(String(editingDish.price));
       setTag(editingDish.tag || '');
-      setSelectedAllergens(editingDish.allergens || []);
+      setSelectedAllergens(normalizeAllergenList(editingDish.allergens));
       setSelectedDietary(editingDish.dietaryTags || []);
       setImagePreview(editingDish.image || null);
     } else if (!editingDish && open) {
@@ -254,7 +300,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
         suggestDietaryTags({
           name: name.trim(),
           description: description.trim(),
-          allergens: selectedAllergens,
+          allergens: normalizeAllergenList(selectedAllergens),
           dietaryTags: selectedDietary,
         })
       );
@@ -272,7 +318,7 @@ export function AddDishDialog({ open, onOpenChange, onSave, editingDish }: AddDi
       description: description.trim(),
       price: parseFloat(price) || 0,
       tag: tag.trim() || undefined,
-      allergens: selectedAllergens,
+      allergens: normalizeAllergenList(selectedAllergens),
       dietaryTags: selectedDietary,
       isVisible: true,
       image: imagePreview || undefined,
